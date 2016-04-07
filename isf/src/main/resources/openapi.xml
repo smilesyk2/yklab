@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AuthorizationInfo>
+	<Naver>
+		<client_id>d2RLJfrsqJ8AYHUM7Gu3</client_id>
+		<client_secret>OhjQaQVrK9</client_secret>
+	</Naver>
+	<Daum>
+		<client_id>33cd866b687cba813d63620f7ab82e40</client_id><!-- as api key -->
+		<client_secret></client_secret><!-- no value -->
+	</Daum>
+	<Twitter>
+		<client_id>8nYLlGfmPiycSqVhVNOT5mlNA</client_id><!-- as twitter consumer key -->
+		<client_secret>tgbuUCaNieeeYnjrKbzAhPbX0mYw9El9dlv4PoU9oY14xeVDIw</client_secret><!-- as twitter consumer secret -->
+	</Twitter>
+	<Facebook>
+		<client_id>201725240204501</client_id><!-- as twitter consumer key -->
+		<client_secret>ab8038915a6a2095ec9e957ab6c051ec</client_secret><!-- as twitter consumer secret -->
+	</Facebook>
+	<Instagram>
+		<client_id>e6e8412a54ee43d0ac60448d71a4cb76</client_id><!-- as twitter consumer key -->
+		<client_secret>fabaa8157af24e1ca0fa36393290a60f</client_secret><!-- as twitter consumer secret -->
+	</Instagram>
+</AuthorizationInfo>
