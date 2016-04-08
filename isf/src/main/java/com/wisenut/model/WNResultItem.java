@@ -6,6 +6,7 @@ public class WNResultItem {
 	String createDate;
 	String author;
 	String link;
+	String thumbnailUrl;
 	
 	public String getTitle() {
 		return title;
@@ -36,5 +37,11 @@ public class WNResultItem {
 	}
 	public void setLink(String link) {
 		this.link = link;
+	}
+	public String getThumbnailUrl() {
+		return thumbnailUrl;
+	}
+	public void setThumbnailUrl(String thumbnailUrl) {
+		this.thumbnailUrl = thumbnailUrl;
 	}
 }

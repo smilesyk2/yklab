@@ -5,7 +5,7 @@ public class WNConstants {
 	public static final int DAUM_ID = 1;
 	public static final int TWITTER_ID = 2;
 	public static final int FACEBOOK_ID = 3;
-	public static final int INSTAGRAM_ID = 4;
+	public static final int YOUTUBE_ID = 4;
 	
 	public static final int PROVIDER_NAME = 0;
 	public static final int PROPERTY_NAME = 1;
@@ -19,6 +19,6 @@ public class WNConstants {
 		{"Daum", "openapi.xml", "accu", "date"},
 		{"Twitter", "twitter4j.properties", "popular", "recent"},
 		{"Facebook", "facebook4j.properties", "", ""},
-		{"Instagram", "openapi.xml", "", ""},
+		{"Youtube", "youtube.properties", "", ""},
 	};
 }

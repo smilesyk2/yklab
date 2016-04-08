@@ -51,7 +51,7 @@ public class FacebookWorker {
 			
 			for(Object result : results){
 				String createDate = getCreateDate(result)!=null ? sdf.format(getCreateDate(result)):"";
-				data.addItem(getTitle(result), StringUtil.removeSpecialCharacter(getContents(result)), createDate, getAuthor(result), getLink(result));
+				data.addItem(getTitle(result), StringUtil.removeSpecialCharacter(getContents(result)), createDate, getAuthor(result), getLink(result), "");
 			}
 		} catch (FacebookException e) {
 			// TODO Auto-generated catch block

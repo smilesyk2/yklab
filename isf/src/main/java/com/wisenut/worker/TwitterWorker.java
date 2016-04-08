@@ -37,7 +37,12 @@ public class TwitterWorker {
 			do{
 				if(pos+1 == startPos ){
 					for (Status status : result.getTweets()) {
-						 data.addItem("", StringUtil.removeSpecialCharacter(status.getText()), sdf.format(status.getCreatedAt()), status.getUser().getScreenName(), "");
+						data.addItem("",
+								StringUtil.removeSpecialCharacter(status.getText()),
+								sdf.format(status.getCreatedAt()),
+								status.getUser().getScreenName(),
+								"https://twitter.com/"+status.getUser().getScreenName()+"/status/"+status.getId(),
+								"");
 					}
 					break;
 				}

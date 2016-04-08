@@ -57,7 +57,8 @@ public class DaumWorker {
 							StringUtil.removeSpecialCharacter(eElement.getElementsByTagName("description").item(0).getTextContent()),
 							eElement.getElementsByTagName("pubDate").item(0).getTextContent(),
 							"",
-							eElement.getElementsByTagName("link").item(0).getTextContent());
+							eElement.getElementsByTagName("link").item(0).getTextContent(),
+							"");
 				}
 			}
 		}catch(Exception e){

@@ -6,6 +6,7 @@ import com.wisenut.worker.DaumWorker;
 import com.wisenut.worker.FacebookWorker;
 import com.wisenut.worker.NaverWorker;
 import com.wisenut.worker.TwitterWorker;
+import com.wisenut.worker.YoutubeWorker;
 
 public class OpenAPIProvider {
 	
@@ -23,15 +24,18 @@ public class OpenAPIProvider {
 			DaumWorker dWorker = new DaumWorker();
 			dWorker.search(query, startPos, pageNo, sort, data);
 		}else if(provider.equals("facebook")){
-			FacebookWorker fbWorker = new FacebookWorker("group");
-			fbWorker.search(query, data);
+			FacebookWorker fWorker = new FacebookWorker("group");
+			fWorker.search(query, data);
+		}else if(provider.equals("youtube")){
+			YoutubeWorker yWorker = new YoutubeWorker();
+			yWorker.search(query, startPos, pageNo, sort, data);
 		}
 		return data;
 	}
 	
 	public static void main(String[] args){
 		OpenAPIProvider provider = new OpenAPIProvider();
-		WNResultData resultData = provider.getOpenAPIResult("instagram", "세월호 :)", 1, 100, WNConstants.METAINFO_BY_PROVIDER[WNConstants.DAUM_ID][WNConstants.SORT_BY_RANK]);
+		WNResultData resultData = provider.getOpenAPIResult("twitter", "스바세행사", 1, 10, WNConstants.METAINFO_BY_PROVIDER[WNConstants.TWITTER_ID][WNConstants.SORT_BY_RANK]);
 		
 		System.out.println(resultData.toString());
 	}
