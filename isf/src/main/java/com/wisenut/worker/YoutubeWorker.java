@@ -90,7 +90,7 @@ public class YoutubeWorker {
 		  search.setKey(apiKey);
 		  search.setQ(query);
 		  search.setType("video");
-		  search.setFields("items(id/kind,id/videoId,snippet/title,snippet/thumbnails/default/url,snippet/publishedAt,snippet/description,snippet/channelTitle,snippet/channelId)");		  
+		  //search.setFields("items(id/kind,id/videoId,snippet/title,snippet/thumbnails/default/url,snippet/publishedAt,snippet/description,snippet/channelTitle,snippet/channelId)");		  
 		  search.setMaxResults(l_pageNo);
 		  
 		  SearchListResponse searchResponse = search.execute();
