@@ -2,9 +2,12 @@ package com.wisenut.worker;
 
 
 import java.text.SimpleDateFormat;
+import java.util.Iterator;
+import java.util.Map;
 
 import twitter4j.Query;
 import twitter4j.QueryResult;
+import twitter4j.RateLimitStatus;
 import twitter4j.Status;
 import twitter4j.Twitter;
 import twitter4j.TwitterException;
@@ -28,6 +31,14 @@ public class TwitterWorker {
 			
 			QueryResult result = twitter.search(twitterQuery);
 			
+			
+			Map<String, RateLimitStatus> statusMap = twitter.getRateLimitStatus();
+			/*Iterator<String> iter = statusMap.keySet().iterator();
+			while(iter.hasNext()){
+				String key = iter.next();
+				System.out.println("#### " + key +" :::::" + statusMap.get(key).getLimit());
+			}*/
+			System.out.println("### /search/tweets ::: " + statusMap.get("/search/tweets").getRemaining() + "/" +statusMap.get("/search/tweets").getLimit());
 			
 			data.setProvider("twitter");
 			data.setCurrentCount(result.getTweets().size());
