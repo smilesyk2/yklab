@@ -1,0 +1,3549 @@
+package com.wisenut.tea20.api;
+
+import java.util.List;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
+import java.util.Map;
+import java.util.HashMap;
+
+import com.wisenut.tea20.tools.StringTool;
+import com.wisenut.tea20.tools.Tools;
+import com.wisenut.tea20.tools.MessageHandler;
+import com.wisenut.tea20.tools.FileLogger;
+import com.wisenut.tea20.types.*;
+import com.wisenut.tea20.types.SocketMessage.PriorityType;
+import com.wisenut.tea20.types.SocketMessage.TransferType;
+
+/**
+ * Java API Client. 
+ * 
+ * Implementation class for TEA v2.0 Java API Client. 
+ * <br><br>
+ * system properties for API:
+ * <ul>
+ * <li>tea2.log.console: enable/disable console log (default: y)</li>
+ * <li>tea2.debug: enable/disable debug mode (default: n)</li>
+ * <li>tea2.log.file: enable/disable file log (default: n)</li>
+ * <li>tea2.log.path: path for file log (default: ./log)</li>
+ * </ul>
+ * @author hkseo@wisenut.co.kr
+ */
+
+public class TeaClient
+{
+	/**
+	 * default IP for listener
+	 */
+	public static final String DEFAULT_IP = "127.0.0.1";
+	/**
+	 * default port number for listener
+	 */
+	public static final int DEFAULT_PORT = 49554;
+
+	/**
+	 * delimiter among items in the list
+	 */
+	private static String ITEM_DELIMITER = ",";
+	/**
+	 * delimiter among values in the item  
+	 */
+	private static String VALUE_DELIMITER = ":";
+	/**
+	 * delimiter for values about frequency (value+(delimiter)+frequency)
+	 */
+	private static String FREQ_DELIMITER = ":";
+	/**
+	 * delimiter for values about weight (value+(delimiter)+weight)
+	 */
+	private static String WEIGHT_DELIMITER = "^";
+	
+	/**
+	 * IP for listener.
+	 */
+	private String ip_ = DEFAULT_IP;
+	/**
+	 * port for listener.
+	 */
+	private int port_ = DEFAULT_PORT;
+	
+	/**
+	 * recent error code
+	 */
+	private String recentErrorCode_ = "";
+	
+	/**
+	 * recent error code from server
+	 */
+	private String recentServerErrorCode_ = "";
+	
+	/**
+	 * recent error message
+	 */
+	private String recentErrorMessage_ = "";
+	
+	/**
+	 * recent error message from server
+	 */
+	private String recentServerErrorMessage_ = "";
+	
+	/**
+	 * recent response from server
+	 */
+	private SocketMessage recentResponse_ = null;
+	
+	/**
+	 * flag for dummy output. 
+	 * If set to true, output for (not-yet-implemented) functions will be pre-defined dummy results.  
+	 */
+	private boolean DUMMY = false;
+	
+	/** 
+	 * flag for whether to display messages in the console
+	 */
+	private boolean consoleLog_ = true;
+	
+	/** 
+	 * flag for whether to write messages in the file
+	 */
+	private boolean fileLog_ = false;
+	
+	/** 
+	 * flag for debugging
+	 */
+	private boolean debug_ = false;
+	
+	/**
+	 * initial interval for socket connection retry
+	 */
+	private int initConnectionInterval_ = 0;
+	
+	/**
+	 * lower limit for socket connection retry
+	 */
+	private int INIT_CONNECTION_INTERVAL = 10;
+	
+	/**
+	 * maximum interval for socket connection retry
+	 */
+	private int maxConnectionInterval_ = 0;
+	
+	/**
+	 * upper limit for maxConnectionInterval_
+	 */
+	private final int MAX_CONNECTION_INTERVAL = 2000;
+	
+	/** 
+	 * maximum connection retries
+	 */
+	private int maxConnectionRetry_ = 0;
+	
+	/**
+	 * upper limit for maxConnectionRetry_
+	 */
+	private final int MAX_CONNECTION_RETRY = 2000;
+	
+	/**
+	 * maximum wait time for receiving results from listener 
+	 */
+	private int waitTimeout_ = 0;
+	
+	/**
+	 *  upper limit for waitTimeout_
+	 */
+	private final int MAX_WAIT_TIMEOUT = 120000;
+	
+	/**
+	 * upper limit for content size
+	 */
+	private final int MAX_CONTENT_SIZE = 5 * 1024 * 1024;
+	
+	/**
+	 * Constructor. 
+	 * 
+	 * @param ip IP for listener
+	 * @param port port for listener
+	 */
+	
+	public TeaClient(String ip, int port)
+	{
+		readProperties();
+		
+		ip_ = ip;
+		port_ = port;
+	}
+	
+	/**
+	 * Constructor. 
+	 * - alternative constructor for detailed connection control
+	 * @param ip IP for listener
+	 * @param port port for listener
+	 * @param interval maximum interval for connection retry (in ms, 1 .. 2000) 
+	 * @param maxRetry maximum count for retry connection (1 .. 100)
+	 */
+	public TeaClient(String ip, int port, int interval, int maxRetry)
+	{
+		readProperties();
+		
+		if (interval > 0 && interval < MAX_CONNECTION_INTERVAL)
+			maxConnectionInterval_ = interval;
+		
+		if (maxRetry > 0 && maxRetry < MAX_CONNECTION_RETRY)
+			maxConnectionRetry_ = maxRetry;
+		
+		ip_ = ip;
+		port_ = port;
+	}
+	
+	/**
+	 * Constructor. 
+	 * - alternative constructor for full connection control
+	 * @param ip IP for listener
+	 * @param port port for listener
+	 * @param initInterval initial interval for connection retry (in ms, 10 .. 2000)
+	 * @param maxInterval maximum interval for connection retry (in ms, 10 .. 2000) 
+	 * @param maxRetry maximum count for retry connection (1 .. 100)
+	 * @param waitTimeout timeout for waiting response from listener (1 .. 120000)
+	 */
+	public TeaClient(String ip, int port, int initInterval, int maxInterval, int maxRetry, int waitTimeout)
+	{
+		readProperties();
+		
+		if (initInterval > INIT_CONNECTION_INTERVAL && maxInterval < MAX_CONNECTION_INTERVAL)
+			initConnectionInterval_ = initInterval;
+
+		if (maxInterval > INIT_CONNECTION_INTERVAL && maxInterval < MAX_CONNECTION_INTERVAL)
+			maxConnectionInterval_ = maxInterval;
+		
+		if (maxRetry > 0 && maxRetry < MAX_CONNECTION_RETRY)
+			maxConnectionRetry_ = maxRetry;
+		
+		if (waitTimeout > 0 && waitTimeout < MAX_WAIT_TIMEOUT)
+			waitTimeout_ = waitTimeout;
+		
+		ip_ = ip;
+		port_ = port;
+	}
+	
+	////////////////////////////////////////////////////////
+	/// Inner Methods (most're private)
+	////////////////////////////////////////////////////////
+	
+	/**
+	 * Read system properties
+	 */
+	private void readProperties()
+	{
+		if (isSet("tea2.log.console"))
+			setConsoleLog(true);
+		
+		if (isSet("tea2.debug"))
+			setDebug(true);
+		
+		if (isSet("tea2.log.file"))
+		{
+			String path= System.getProperty("tea2.log.path", "./log");
+			this.setFileLog(true, path);
+		}
+		
+		initConnectionInterval_ = getPropertyAsInt("tea2.socket.init_conn_interval", 0);
+		maxConnectionInterval_ = getPropertyAsInt("tea2.socket.max_conn_interval", 0);
+		maxConnectionRetry_ = getPropertyAsInt("tea2.socket.max_conn_retry", 0);
+		waitTimeout_ = getPropertyAsInt("tea2.socket.read_timeout", 0);
+	}
+	
+	/**
+	 * Check whether given property's set.
+	 * @param key key of property
+	 * @return true if property's set "true" or "y"
+	 */
+	private boolean isSet(String key)
+	{
+		String flag = System.getProperty(key, "");
+
+		if ("true".equals(flag) || "y".equals(flag))
+			return true;
+		else
+			return false;
+	}
+	
+	private int getPropertyAsInt(String key, int defaultValue)
+	{
+		String valueString = System.getProperty(key, "");
+
+		if ("".equals(valueString))
+			return defaultValue;
+		
+		int toReturn = defaultValue;
+		try
+		{
+			toReturn = Integer.parseInt(valueString);
+		}
+		catch(Exception e){}
+		return toReturn;
+	}
+	
+	/**
+	 * Method for actual socket communication. (internal use)
+	 * @param request wrapper object for (request) socket message
+	 * @return wrapper object for response message
+	 */
+	private SocketMessage handleMessage(SocketMessage request)
+	{
+		long startTime = System.currentTimeMillis();
+		if (fileLog_)
+		{
+			FileLogger.debug(request.getRequestType() + ": started");
+		}
+		
+		SocketMessage toReturn = null;
+		MessageHandler handler = null;
+		
+		if (0 != maxConnectionInterval_ || 0 != maxConnectionRetry_)
+			handler = new MessageHandler(ip_, port_, 
+					initConnectionInterval_, maxConnectionInterval_, maxConnectionRetry_, waitTimeout_);
+		else
+			handler = new MessageHandler(ip_, port_);
+		toReturn = handler.getResponse(request);
+		recentResponse_ = toReturn;
+
+		if (!"".equals(toReturn.getErrorCode()))
+		{
+			setError(toReturn.getErrorCode(), toReturn.getErrorMessage());
+			recentServerErrorCode_ = toReturn.getErrorCode();
+			recentServerErrorMessage_ = toReturn.getErrorMessage();
+		}
+		else
+		{
+			setError("", "");
+		}
+		
+		if (fileLog_)
+		{
+			FileLogger.debug(request.getRequestType() + ": ended (" + (System.currentTimeMillis() - startTime)+ " ms)");
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Check if response's successful. (internal use)
+	 * @param response wrapper object for response socket message
+	 * @return true if successful
+	 */
+	private boolean isSuccessful(SocketMessage response)
+	{
+		if ("success".equals(response.getValue("status")))
+			return true;
+		else
+			return false;
+	}
+	
+	/**
+	 * Enable / disable dummy operation. (internal use)
+	 * (DUMMY means non-actual, intended response for testing each method.) 
+	 * @param isDummy true for setting dummy operation
+	 */
+	public void setDummy(boolean isDummy)
+	{
+		DUMMY = isDummy;
+	}
+	
+	/**
+	 * Set recent error code / message (internal use)
+	 * @param code error code to set
+	 * @param message error message to set
+	 */
+	private void setError(String code, String message)
+	{
+		recentErrorCode_ = code;
+		recentErrorMessage_ = message;
+		recentServerErrorCode_ = "";
+		recentServerErrorMessage_ = "";
+		
+		if (consoleLog_ && !"".equals(message))
+		{
+			System.out.println("[E!:" + code + "] "+message);
+			//System.err.println("[E!:" + code + "] "+message);
+		}
+		
+		if (fileLog_)
+		{
+			FileLogger.error(message);
+		}
+	}
+	
+	/**
+	 * Modify error code / message using messages from system (internal use)
+	 * @param code error code to modify
+	 * @param message error message to modify
+	 */
+	private void wrapError(String code, String message)
+	{
+		recentErrorCode_ = code;
+		
+		/* 
+   		잘못된 topic_id 에 대한 오류
+        <error>
+        	<code>TEAL_8453</code>
+        	<message>[request_id=201203082] Failed to create a process module by wrong value of a parameter(=topic_id)</message>
+		</error>
+		
+		존재하지 않는 topic_id 에 대한 오류
+		<error>
+        	<code>TEAL_4410</code>
+        	<message>Topic ID <1000> does not exist.</message>
+		</error> 
+		*/
+		if ("TEAL_8453".equals(recentServerErrorCode_))
+		{
+			recentErrorCode_ = "APIL_0155";
+			recentErrorMessage_ = message + ": argument's not valid (server-side): " + recentServerErrorMessage_;
+		}
+		else if ("TEAL_4410".equals(recentServerErrorCode_))
+		{
+			recentErrorCode_ = "APIL_0161";
+			recentErrorMessage_ = message + ": topic ID's not exist";
+		}
+		else
+		{
+			recentErrorMessage_ = message + " DUE TO [" + recentServerErrorCode_+ ": " + recentServerErrorMessage_ + "]";	
+		}
+				
+		recentServerErrorMessage_ = "";
+		
+		if (consoleLog_)
+		{
+			System.out.println("[E!:" + recentErrorCode_ + "] " + recentErrorMessage_);
+			//System.err.println("[E!:" + recentErrorCode_ + "] " + recentErrorMessage_);
+		}
+		if (fileLog_)
+		{
+			FileLogger.error(message);
+		}
+	}
+	
+	/**
+	 * Set whether to show (error) log message in console.
+	 * @param isSet true for setting
+	 */
+	public void setConsoleLog(boolean isSet)
+	{
+		consoleLog_ = isSet;
+	}
+	
+	/**
+	 * Set whether to show (error) log message in console.
+	 * @param isSet true for setting
+	 * @param path path for logging
+	 */
+	public void setFileLog(boolean isSet, String path)
+	{
+		fileLog_ = isSet;
+		if (isSet)
+		{
+			new FileLogger(path, debug_);
+			FileLogger.log("file logging started");
+		}
+	}
+	
+	/**
+	 * Set debug mode
+	 * @param isSet true for setting
+	 */
+	public void setDebug(boolean isSet)
+	{
+		debug_ = isSet;
+	}
+	
+	////////////////////////////////////////////////////////
+	/// General Methods
+	////////////////////////////////////////////////////////
+
+	/**
+	 * Set delimiters.
+	 * @param item delimiter between items (null: use default delimiter) 
+	 * @param value delimiter in a item between first sub-item and next one (null: use default delimiter) 
+	 * @param freq delimiter in a item between first sub-item and next frequency value (null: use default delimiter) 
+	 * @param weight delimiter in a item between first sub-item and next weight value (null: use default delimiter) 
+	 */
+	public static void setDelimiters(String item, String value, String freq, String weight)
+	{
+		if (null == item || null == value || null == freq || null == weight ||
+				1 != item.length() || 1 != value.length() || 1 != freq.length() || 1 != weight.length())
+		{
+			System.err.println("[E!:SYSTEM] Some delimiters are invalid.");
+			return;
+		}
+			
+		if (item.equals(value) || item.equals(freq) || item.equals(weight))
+		{
+			System.err.println("[E!:SYSTEM] Some delimiters are duplicated.");
+			return;
+		}
+			
+		ITEM_DELIMITER = item;
+		VALUE_DELIMITER = value;
+		FREQ_DELIMITER = freq;
+		WEIGHT_DELIMITER = weight;
+	}
+	
+	/**
+	 * Wait until given task's end. (interval of checking task status is given as parameter) 
+	 * @param taskId task id to check
+	 * @param interval interval of checking status
+	 */
+	public void waitUntilEnd(String taskId, long interval)
+	{
+		waitUntilEnd(taskId, interval, 0);
+	}
+	
+	/**
+	 * Wait until given task's end. (interval of checking task status is given as parameter) 
+	 * @param taskId task id to check
+	 * @param interval interval of checking status
+	 * @param timeout limit of total waiting time. after timeout, this function ends waiting. (in case of 0, infinite waiting) 
+	 */
+	public void waitUntilEnd(String taskId, long interval, long timeout)
+	{
+		long startTime = System.currentTimeMillis();
+		
+		boolean finished = false;
+		while(!finished)
+		{
+			try
+			{
+				Thread.sleep(interval);
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
+			}
+			TaskStatus stat = getStatus(taskId);
+			
+			if (EnumTaskStatus.FINISHED.equals(stat.getStatus()))
+			{
+				finished = true;
+				break;
+			}
+			else if (EnumTaskStatus.CANCELED.equals(stat.getStatus()) 
+				|| EnumTaskStatus.NOT_EXIST.equals(stat.getStatus()) || EnumTaskStatus.FAILED.equals(stat.getStatus()))
+			{
+				//System.err.println("[w!] task's not exist: task_id=" + taskId);
+				setError("APIL_0173", "task finished with errorous condition: task_id=" + taskId + " DUE TO [" + stat.getMessage()+"]");
+				finished = true;
+				break;
+			}
+			
+			if (timeout != 0)
+			{
+				long elapsed = System.currentTimeMillis() - startTime;
+				if (!finished && elapsed > timeout)
+				{
+					//System.err.println("[w!] timeout in waiting ending task: task_id=" + taskId);
+					setError("APIL_0171", "timeout in waiting task: task_id=" + taskId);
+					finished = true;
+				}				
+			}
+		}
+	}
+	
+	/**
+	 * Checks whether error was occurred.
+	 * @return true if last API call had some error.
+	 */
+	public boolean hasError()
+	{
+		return "".equals(recentErrorCode_) ? false : true; 
+	}
+	
+	/**
+	 * Get the error code recently occurred.
+	 * @return code
+	 */
+	public String getErrorCode()
+	{
+		String toReturn = recentErrorCode_;
+		
+		if (DUMMY)
+		{
+			return "";
+		}
+			
+		return toReturn;
+	}
+	
+	/**
+	 * Get the server error code recently occurred.
+	 * @return code
+	 */
+	public String getServerErrorCode()
+	{
+		String toReturn = recentServerErrorCode_;
+		
+		if (DUMMY)
+		{
+			return "";
+		}
+			
+		return toReturn;
+	}
+	
+	/**
+	 * Get the error message recently occurred.
+	 * @return message
+	 */
+	public String getErrorMessage()
+	{
+		String toReturn = recentErrorMessage_;
+		
+		if (DUMMY)
+		{
+			return "";
+		}
+		
+		return toReturn;
+	}
+	
+	public String getResponseXml()
+	{
+		if (null == recentResponse_)
+			return "";
+		else
+			return recentResponse_.toString();
+	}
+	
+	////////////////////////////////////////////////////////
+	/// System Handling Methods
+	////////////////////////////////////////////////////////
+	
+	/**
+	 * Test Connection.
+	 * @return true if successful 
+	 */
+	public boolean testConnection()
+	{
+		boolean toReturn = true;
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+
+		String [] paramFields = {};
+		SocketMessage request = new SocketMessage("admin", "ping", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		//request.setValue("item_delimiter", ITEM_DELIMITER);
+		//request.setValue("value_delimiter", VALUE_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (isSuccessful(response))
+			toReturn = true;
+		else
+			toReturn = false;
+		
+		return toReturn;
+	}
+	/**
+	 * Return current server status
+	 * 
+	 * @return get list of server statuses
+	 */
+	public ServerStatus[] getServerStatus()
+	{
+		ServerStatus[] toReturn = new ServerStatus [0]; 
+		if (DUMMY)
+		{
+			toReturn = new ServerStatus[2];
+			toReturn[0] = new ServerStatus("127.0.0.1", 10100, 0, true );
+			toReturn[1] = new ServerStatus("61.82.137.111", 10100, 0, true );
+		}
+		
+		String [] paramFields = {"item_delimiter", "value_delimiter"};
+		SocketMessage request = new SocketMessage("admin", "server_status", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0201", "couldn't get server status");
+			}
+			else
+			{
+				wrapError("APIL_0201", "couldn't get server status");
+			}
+			return toReturn;
+		}
+		else
+		{
+			String serversString = response.getValue("servers");
+			StringTokenizer tokenizer = new StringTokenizer(serversString, ITEM_DELIMITER);
+			toReturn = new ServerStatus [tokenizer.countTokens()];
+			try
+			{
+				for (int i=0; i<toReturn.length; i++)
+				{
+					String itemString = tokenizer.nextToken();
+					StringTokenizer itemTokenizer = new StringTokenizer(itemString, VALUE_DELIMITER); 
+					String ip = itemTokenizer.nextToken();
+					String portString = itemTokenizer.nextToken();
+					String aliveString = itemTokenizer.nextToken();
+					String timeString = itemTokenizer.nextToken();
+					int port = Integer.parseInt(portString.trim());
+					boolean alive = "y".equals(aliveString);
+					long time = Tools.parseTime(timeString.trim());
+					toReturn[i] = new ServerStatus(ip, port, time, alive);
+				}	
+			}
+			catch(Exception e)
+			{
+				setError("APIL_0202", "error in parsing status string: " + serversString);
+				return new ServerStatus[0];
+			}
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get HTTPD port number.
+	 * @return port number
+	 */
+	public int getHttpdPort()
+	{
+		int toReturn = 0;
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+
+		String [] paramFields = {};
+		SocketMessage request = new SocketMessage("admin", "httpd_port", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		
+		SocketMessage response = handleMessage(request);
+		if (isSuccessful(response))
+		{
+			toReturn = Tools.parseInt(response.getValue("port"));
+		}
+		else
+		{
+			wrapError("APIL_0206", "couldn't get httpd port number");
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Return running status of given request ID.
+	 * @param requestId request ID 
+	 * @return status object
+	 */
+	public TaskStatus getStatus(String requestId)
+	{
+		TaskStatus toReturn = new TaskStatus();
+		if (null == requestId || 0 == requestId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			toReturn = new TaskStatus();
+			toReturn.setRequestId(requestId);
+			toReturn.setStatus(EnumTaskStatus.RUNNING);
+			toReturn.setTaskType("topic_ext");
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {};
+		SocketMessage request = new SocketMessage("admin", "status", PriorityType.EMERGENCY, TransferType.BI_WAY, requestId, paramFields);
+		
+		SocketMessage response = handleMessage(request);
+
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0211", "couldn't get task status: task_id=" + requestId);
+			}
+			else
+			{
+				wrapError("APIL_0211", "couldn't get task status: task_id=" + requestId);
+			}
+			toReturn.setStatus(EnumTaskStatus.FAILED);
+			toReturn.setErrorCode(getErrorCode());
+			toReturn.setMessage(getErrorMessage());
+			return toReturn;
+		}
+		
+		toReturn.setRequestId(response.getRequestId());
+		toReturn.setStatus(response.getValue("task_status").trim());
+		toReturn.setTaskType(response.getValue("task_type").trim());
+		toReturn.setPercent(Tools.parseDouble(response.getValue("percentage")));
+		toReturn.setStartTime(Tools.parseTime(response.getValue("start_time")));
+		toReturn.setEndTime(Tools.parseTime(response.getValue("end_time")));
+		toReturn.setEstimatedTime(Tools.parseTime(response.getValue("estimated_time")));
+		toReturn.setMessage(response.getValue("message"));
+		toReturn.setErrorCode(response.getValue("error_code"));
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Return entire request IDs running in the server.
+	 * @return list of request IDs in String Array
+	 */
+	public String[] getRequestIds()
+	{
+		String [] toReturn = new String [0]; 
+		if (DUMMY)
+		{
+			toReturn = new String [4];
+			toReturn[0] = Tools.getUniqueId();
+			toReturn[1] = Tools.getUniqueId();
+			toReturn[2] = Tools.getUniqueId();
+			toReturn[3] = Tools.getUniqueId();
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {"item_delimiter"};
+		SocketMessage request = new SocketMessage("admin", "req_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0221", "couldn't get Request IDs");
+			}
+			else
+			{
+				wrapError("APIL_0221", "couldn't get Request IDs");
+			}
+			return toReturn;
+		}
+		else
+		{
+			toReturn = StringTool.stringToArray(response.getValue("req_ids").trim(), ITEM_DELIMITER);
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Stop task.
+	 * @param requestId request ID to stop
+	 * @return true if this message's successfully delivered
+	 */
+	public boolean stopTask(String requestId)
+	{
+		boolean toReturn = false;
+		if (null == requestId || 0 == requestId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		
+		SocketMessage request = new SocketMessage("admin", "stop", PriorityType.EMERGENCY, TransferType.BI_WAY, requestId, new String [0]);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0231", "couldn't stop task: task_id=" + requestId);
+			}
+			else
+			{
+				wrapError("APIL_0231", "couldn't stop task: task_id=" + requestId);
+			}
+			toReturn = false;
+		}
+		else
+		{
+			toReturn = true;
+		}
+		return toReturn;
+	}
+
+	/**
+	 * Cancel task.
+	 * @param requestId request ID to cancel
+	 * @return true if this message's successfully delivered
+	 */
+	public boolean cancelTask(String requestId)
+	{
+		boolean toReturn = false;
+		if (null == requestId || 0 == requestId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		
+		SocketMessage request = new SocketMessage("admin", "cancel", PriorityType.EMERGENCY, TransferType.BI_WAY, requestId, new String [0]);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0241", "couldn't calcel task: task_id=" + requestId);
+			}
+			else
+			{
+				wrapError("APIL_0241", "couldn't calcel task: task_id=" + requestId);
+			}
+			toReturn = false;
+		}
+		else
+		{
+			toReturn = true;
+		}
+		return toReturn;
+	}
+
+	/**
+	 * Resume stopped task. 
+	 * @param requestId request ID to resume
+	 * @return true if this message's successfully delivered
+	 */
+	public boolean resumeTask(String requestId)
+	{
+		boolean toReturn = false;
+		if (null == requestId || 0 == requestId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		
+		SocketMessage request = new SocketMessage("admin", "resume", PriorityType.EMERGENCY, TransferType.BI_WAY, requestId, new String [0]);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0251", "couldn't resume task: task_id=" + requestId);
+			}
+			else
+			{
+				wrapError("APIL_0251", "couldn't resume task: task_id=" + requestId);
+			}
+			toReturn = false;
+		}
+		else
+		{
+			toReturn = true;
+		}
+		return toReturn;
+	}
+	
+	////////////////////////////////////////////////////////
+	/// Keywords Extraction Methods
+	////////////////////////////////////////////////////////
+	
+	/**
+	 * Request keywords extraction. (bulk operation for the collection)
+	 * @param collectionId target collection ID
+	 * @return Request ID (not "") if successful, "" if error occurred.
+	 */
+	public String requestKeywordExtraction(String collectionId)
+	{
+		String toReturn = "";
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return Tools.getUniqueId();
+		}
+		String [] paramFields = {"collection_id"};		
+		SocketMessage request = new SocketMessage("extractor", "bulk", PriorityType.NORMAL, TransferType.SINGLE_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0261", "keyword extraction (bulk) wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0261", "keyword extraction (bulk) wasn't successful: coll_id=" + collectionId);
+			}
+			toReturn = "";
+		}
+		else
+		{
+			toReturn = response.getRequestId();
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Request keywords extraction. (realtime)
+	 * @param collectionId target collection ID
+	 * @param content texts to extract keywords. (SCD formats or raw text, according to the setting of the collection)
+	 * @return wrapper object for keyword-weight pairs
+	 */
+	public List< Pair<Integer> > extractKeywords(String collectionId, String content)
+	{
+		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+		if (null == collectionId || null == content || 0 == collectionId.length() || 0 == content.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (content.length() > MAX_CONTENT_SIZE)
+		{
+			setError("APIL_0153", "content size cannot exceed " + MAX_CONTENT_SIZE + " characters");
+			return toReturn;
+		}
+
+		if(DUMMY)
+		{
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "content", "item_delimiter", "weight_delimiter"};		
+		SocketMessage request = new SocketMessage("extractor", "realtime", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("content", content);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("weight_delimiter", WEIGHT_DELIMITER);
+	
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0271", "keyword extraction (realtime) wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0271", "keyword extraction (realtime) wasn't successful: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			//public static List< Pair<String> > getPairListStr(String obj, String itemDelimiter, String valueDelimiter)
+			String keywordsString = response.getValue("keywords").trim();
+			toReturn = Tools.getPairListInt(keywordsString, ITEM_DELIMITER, WEIGHT_DELIMITER);
+		}
+		return toReturn;
+	}
+	
+	////////////////////////////////////////////////////////
+	/// Topic Analysis Methods
+	////////////////////////////////////////////////////////
+
+	/**
+	 * Get entire collection IDs 
+	 * @return list of collection IDs
+	 */
+	public String[] getCollectionIds()
+	{
+		String [] toReturn = new String [0];
+		if (DUMMY)
+		{
+			toReturn = new String [1];
+			toReturn[0] = "TEST_COLLECTION";
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {"item_delimiter"};
+		SocketMessage request = new SocketMessage("admin", "coll_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0281", "couldn't get collection IDs");
+			}
+			else
+			{
+				wrapError("APIL_0281", "couldn't get collection IDs");
+			}
+			return toReturn;
+		}
+		else
+		{
+			toReturn = StringTool.stringToArray(response.getValue("coll_ids").trim(), ITEM_DELIMITER);
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get some information for given collection.
+	 * @param collectionId collection ID to get info
+	 * @return wrapper object for collection status
+	 */
+	public CollectionInfo getCollectionInfo(String collectionId)
+	{
+		CollectionInfo toReturn = new CollectionInfo();
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id"};
+		SocketMessage request = new SocketMessage("admin", "coll_info", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0285", "couldn't get collection info: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0285", "couldn't get collection info: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			boolean isTeColl = "y".equals(response.getValue("is_te_collection"));
+			boolean isRoasterColl = "y".equals(response.getValue("is_roaster_collection"));
+			long timeTeExtract = Tools.parseTime(response.getValue("time_te_extracted"));
+			long timeRoasterAnalysis = Tools.parseTime(response.getValue("time_roaster_analyzed"));
+			long timeStarted = Tools.parseTime(response.getValue("start_time"));
+			String statusString = response.getValue("collection_status");
+			boolean needsAnalysis = "y".equals(response.getValue("needs_analysis"));
+			
+			toReturn = new CollectionInfo(collectionId, isTeColl, isRoasterColl, 
+					timeTeExtract, timeRoasterAnalysis, timeStarted, 
+					statusString, needsAnalysis);
+		}
+		return toReturn;
+	}
+	
+//	/**
+//	 * Create collection for topic analysis.
+//	 * @param collectionId collection ID to create
+//	 * @return true if successful
+//	 */
+//	public boolean createCollection(String collectionId)
+//	{
+//		boolean toReturn = false;
+//		if (null == collectionId || 0 == collectionId.length())
+//		{
+//			setError("APIL_0100", "argument's not valid.");
+//			return toReturn;
+//		}
+//
+//		if (DUMMY)
+//		{
+//			return true;
+//		}
+//		
+//		String [] paramFields = {"collection_id"};
+//		SocketMessage request = new SocketMessage("roaster", "coll_create", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+//		request.setValue("collection_id", collectionId);
+//		
+//		SocketMessage response = handleMessage(request);
+//		if (!isSuccessful(response))
+//		{
+//			if ("".equals(response.getErrorCode()))
+//			{
+//				setError("APIL_0291", "couldn't create collection: " + collectionId);
+//			}
+//			toReturn = false;
+//		}
+//		else
+//		{
+//			toReturn = true;
+//		}
+//		return toReturn;	
+//	}
+	
+//	/**
+//	 * Request loading documents in the collection.
+//	 * @param collectionId collection ID to load documents
+//	 * @return Request ID (not "") if successful, "" if error occurred.
+//	 */
+//	public String requestLoadCollection(String collectionId)
+//	{
+//		String toReturn = "";
+//		if (null == collectionId || 0 == collectionId.length())
+//		{
+//			setError("APIL_0100", "argument's not valid.");
+//			return toReturn;
+//		}
+//
+//		if (DUMMY)
+//		{
+//			return Tools.getUniqueId();
+//		}
+//		
+//		String [] paramFields = {"collection_id"};		
+//		SocketMessage request = new SocketMessage("retriever", "coll_load", PriorityType.NORMAL, TransferType.SINGLE_WAY, "", paramFields);
+//		request.setValue("collection_id", collectionId);
+//		
+//		SocketMessage response = handleMessage(request);
+//		if (!isSuccessful(response))
+//		{
+//			if ("".equals(response.getErrorCode()))
+//			{
+//				setError("APIL_0301", "request for loading collection wasn't successful: " + collectionId);
+//			}
+//			toReturn = "";
+//		}
+//		else
+//		{
+//			toReturn = response.getRequestId();
+//		}
+//		return toReturn;
+//	}
+	
+	/**
+	 * Request analyzing topics.
+	 * @param collectionId collection ID to analyze topics
+	 * @param reload if it's set to true, request reloading and re-analysis of given collection
+	 * @return Request ID (not "") if successful, "" if error occurred.
+	 */
+	public String requestTopicAnalysis(String collectionId, boolean reload)
+	{
+		String toReturn = "";
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return Tools.getUniqueId();
+		}
+		
+		String [] paramFields = {"collection_id", "reload"};		
+		SocketMessage request = new SocketMessage("roaster", "topic_ext", PriorityType.NORMAL, TransferType.SINGLE_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("reload", reload ? "y" : "n");
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0311", "request for analyzing topics wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0311", "request for analyzing topics wasn't successful: coll_id=" + collectionId);
+			}
+			toReturn = "";
+		}
+		else
+		{
+			toReturn = response.getRequestId();
+		}
+		return toReturn;	
+	}
+	
+	/**
+	 * Request analyzing given custom field with given analysis settings.
+	 * @param collectionId collection ID to analyze topics
+	 * @return Request ID (not "") if successful, "" if error occurred.
+	 */
+	public String requestCustomFieldAnalysis(String collectionId, String [] analysisIds)
+	{
+		String toReturn = "";
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return Tools.getUniqueId();
+		}
+		String delimiter = ",";
+		String [] paramFields = {"collection_id", "analysis_id"};		
+		SocketMessage request = new SocketMessage("teasifter", "custom", PriorityType.NORMAL, TransferType.SINGLE_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		if (null == analysisIds)
+			analysisIds = new String [0];
+		request.setValue("analysis_id", StringTool.arrayToString(analysisIds, delimiter));
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0321", "request for analyzing custom field wasn't successful: coll_id=" + collectionId + "/analysis_ids=" + StringTool.arrayToString(analysisIds, delimiter));
+			}
+			else
+			{
+				wrapError("APIL_0321", "request for analyzing custom field wasn't successful: coll_id=" + collectionId + "/analysis_ids=" + StringTool.arrayToString(analysisIds, delimiter));			
+			}
+			toReturn = "";
+		}
+		else
+		{
+			toReturn = response.getRequestId();
+		}
+		return toReturn;		
+
+	}
+	
+	/**
+	 * Request analyzing given custom field with given analysis settings.
+	 * @param collectionId target collection ID 
+	 * @param analysisId actual ID for custom field analysis setting  
+	 * @return Request ID (not "") if successful, "" if error occurred.
+	 */
+	public String requestCustomFieldAnalysis(String collectionId, String analysisId)
+	{
+		String toReturn = "";
+		if (null == collectionId || null == analysisId || 0 == collectionId.length() || 0 == analysisId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return Tools.getUniqueId();
+		}
+		
+		String [] paramFields = {"collection_id", "analysis_id"};		
+		SocketMessage request = new SocketMessage("teasifter", "custom", PriorityType.NORMAL, TransferType.SINGLE_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("analysis_id", analysisId);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0321", "request for analyzing custom field wasn't successful: coll_id=" + collectionId + "/analysis_id=" + analysisId);
+			}
+			else
+			{
+				wrapError("APIL_0321", "request for analyzing custom field wasn't successful: coll_id=" + collectionId + "/analysis_id=" + analysisId);			
+			}
+			toReturn = "";
+		}
+		else
+		{
+			toReturn = response.getRequestId();
+		}
+		return toReturn;		
+	}
+	
+	/**
+	 * Request extracting keywords and analyzing topics simultaneously against given collection.
+	 * @param collectionId collection ID to extract / analyze 
+	 * @param reload if it's set to true, request reloading and re-analysis of given collection
+	 * @return Request ID (not "") if successful, "" if error occurred.
+	 */
+	public String requestTotalAnalysis(String collectionId, boolean reload)
+	{
+		String toReturn = "";
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return Tools.getUniqueId();
+		}
+		
+		String [] paramFields = {"collection_id", "reload"};		
+		SocketMessage request = new SocketMessage("total", "total_ext", PriorityType.NORMAL, TransferType.SINGLE_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("reload", reload ? "y" : "n");
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0331", "request for total analysis wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0331", "request for total analysis wasn't successful: coll_id=" + collectionId);
+			}
+			toReturn = "";
+		}
+		else
+		{
+			toReturn = response.getRequestId();
+		}
+		return toReturn;	
+	}
+	
+	/**
+	 * Request topic analysis of given document, with form of keyword-weight pairs. (realtime)
+	 * @param collectionId collection ID 
+	 * @param keywords for input (not null!)
+	 * @param keywordTopicPairs returning object for (keyword, topic_id) pairs for topic assignment output (must be empty object to get results, no result if it's null)
+	 * @return wrapper object for (topic, weight) pairs (weight: 1 to 10000)
+	 */
+	public List< Pair<Integer> > analyzeTopic(String collectionId, String [] keywords, List< Pair<String> > keywordTopicPairs)
+	{
+		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+		if (null == collectionId || null == keywords || 0 == collectionId.length() || 0 == keywords.length)
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (null != keywordTopicPairs)
+			keywordTopicPairs.clear();
+		
+		if(DUMMY)
+		{
+			keywordTopicPairs.clear();
+			keywordTopicPairs.add(new Pair<String> ("key_01", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_02", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_03", "EX_TOPIC_05"));
+			keywordTopicPairs.add(new Pair<String> ("key_04", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_05", "EX_TOPIC_05"));
+			
+			toReturn.add(new Pair<Integer> ("EX_TOPIC_03", new Integer(4000)));
+			toReturn.add(new Pair<Integer> ("EX_TOPIC_05", new Integer(1000)));
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "keywords", "item_delimiter", "weight_delimiter", "value_delimiter", "kw_topic_map"};		
+		SocketMessage request = new SocketMessage("roaster", "topic_ext_doc", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		String keywordsStr = StringTool.arrayToString(keywords, ITEM_DELIMITER);
+		request.setValue("keywords", keywordsStr);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("weight_delimiter", WEIGHT_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		request.setValue("kw_topic_map", null == keywordTopicPairs ? "n" : "y");
+	
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0341", "topic analysis (realtime) wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0341", "topic analysis (realtime) wasn't successful: coll_id=" + collectionId);				
+			}
+		}
+		else
+		{
+			String topicsString = response.getValue("topics").trim();
+			toReturn = Tools.getPairListInt(topicsString, ITEM_DELIMITER, WEIGHT_DELIMITER);
+			
+			if (null != keywordTopicPairs)
+			{
+				String kwTopicsString = response.getValue("keyword_topics").trim();
+				Tools.setPairListStr(kwTopicsString, ITEM_DELIMITER, VALUE_DELIMITER, keywordTopicPairs);
+			}
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Request keyword extraction and topic analysis of given document simultaneously, with form of keyword-weight pairs. (realtime)
+	 * @param collectionId collection ID
+	 * @param keywords returning object for keyword extraction results (must be an empty object to get results, returns no result if it's null)
+	 * @param keywordTopicPairs returning object for (keyword, topic_id) pairs for topic assignment output (must be empty object to get results, no result if it's null)
+	 * @return wrapper object for (topic, weight) pairs (weight: 1 to 10000)
+	 */
+	public List< Pair<Integer> > analyzeTotally(String collectionId, String texts,
+			List< String > keywords, List< Pair<String> > keywordTopicPairs)
+	{
+		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+		if (null == collectionId || null == texts || 0 == collectionId.length() || 0 == texts.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (null != keywords)
+			keywords.clear();
+		if (null != keywordTopicPairs)
+			keywordTopicPairs.clear();
+		
+		if(DUMMY)
+		{
+			keywords.clear();
+			
+			keywords.add("key_01");
+			keywords.add("key_02");
+			keywords.add("key_03");
+			keywords.add("key_04");
+			keywords.add("key_05");
+			/*keywords.add(new Pair<Integer> ("key_01", new Integer(4000)));
+			keywords.add(new Pair<Integer> ("key_02", new Integer(2000)));
+			keywords.add(new Pair<Integer> ("key_03", new Integer(2000)));
+			keywords.add(new Pair<Integer> ("key_04", new Integer(1000)));
+			keywords.add(new Pair<Integer> ("key_05", new Integer(1000)));*/
+			
+			keywordTopicPairs.clear();
+			keywordTopicPairs.add(new Pair<String> ("key_01", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_02", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_03", "EX_TOPIC_05"));
+			keywordTopicPairs.add(new Pair<String> ("key_04", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_05", "EX_TOPIC_05"));
+			
+			toReturn.add(new Pair<Integer> ("EX_TOPIC_03", new Integer(4000)));
+			toReturn.add(new Pair<Integer> ("EX_TOPIC_05", new Integer(1000)));
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "content", "item_delimiter", "weight_delimiter", "value_delimiter", "kw_topic_map"};		
+		SocketMessage request = new SocketMessage("total", "total_ext_doc", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("content", texts);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("weight_delimiter", WEIGHT_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		request.setValue("kw_topic_map", null == keywordTopicPairs ? "n" : "y");
+	
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0351", "total analysis (realtime) wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0351", "total analysis (realtime) wasn't successful: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			String topicsString = response.getValue("topics").trim();
+			toReturn = Tools.getPairListInt(topicsString, ITEM_DELIMITER, WEIGHT_DELIMITER);
+			
+			if (null != keywords)
+			{
+				String keywordsString = response.getValue("keywords");
+				String [] keywordsArray = StringTool.stringToArray(keywordsString, ITEM_DELIMITER);
+				for (int i=0; i<keywordsArray.length; i++)
+					keywords.add(keywordsArray[i]);
+				//Tools.setPairListInt(keywordsString, ITEM_DELIMITER, WEIGHT_DELIMITER, keywords);
+			}
+			
+			if (null != keywordTopicPairs)
+			{
+				String kwTopicsString = response.getValue("keyword_topics").trim();
+				Tools.setPairListStr(kwTopicsString, ITEM_DELIMITER, VALUE_DELIMITER, keywordTopicPairs);
+			}
+		}
+		return toReturn;
+	}
+	
+	////////////////////////////////////////////////////////
+	/// Repository Retrieval Methods (Topic)
+	////////////////////////////////////////////////////////
+
+	/**
+	 * Get (analyzed) documents information. 
+	 * @param collectionId collection id to find document
+	 * @param docId document id (unique in the collection)
+	 */
+	public DocumentInfo getAnalyzedDocument(String collectionId, String docId)
+	{
+		DocumentInfo  toReturn = new DocumentInfo();
+		if (null == collectionId || null == docId || 0 == collectionId.length() || 0 == docId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if(DUMMY)
+		{
+			String [] keywords = {"key_01", "key_02", "key_03", "key_04", "key_05"};
+			
+			List< Pair<Integer> > topics = new ArrayList< Pair<Integer> > ();
+			topics.add(new Pair<Integer> ("EX_TOPIC_03", new Integer(4000)));
+			topics.add(new Pair<Integer> ("EX_TOPIC_05", new Integer(1000)));
+			
+			List< Pair<String> > keywordTopicPairs = new ArrayList< Pair<String> > ();
+			keywordTopicPairs.add(new Pair<String> ("key_01", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_02", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_03", "EX_TOPIC_05"));
+			keywordTopicPairs.add(new Pair<String> ("key_04", "EX_TOPIC_03"));
+			keywordTopicPairs.add(new Pair<String> ("key_05", "EX_TOPIC_05"));
+			
+			toReturn = new DocumentInfo(docId, "Test Document", "This is a test document", "20120101",
+					keywords, topics, keywordTopicPairs, new ArrayList<Pair<String>> ());
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "doc_id", "item_delimiter", "weight_delimiter", "value_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "analyzed_doc_info", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("doc_id", docId);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("weight_delimiter", WEIGHT_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0361", "retrieval of analyzed document wasn't successful: coll_id=" + collectionId + "/doc_id="+docId);
+			}
+			else
+			{
+				wrapError("APIL_0361", "retrieval of analyzed document wasn't successful: coll_id=" + collectionId + "/doc_id="+docId);				
+			}
+		}
+		else
+		{
+			String title = response.getValue("title");
+			String content = response.getValue("content");
+			String date = response.getValue("date");
+			List< Pair<String> > keywordTopics = Tools.getPairListStr(response.getValue("keyword_topics"), ITEM_DELIMITER, VALUE_DELIMITER);
+			String [] keywords = StringTool.stringToArray(response.getValue("keywords"), ITEM_DELIMITER);
+			List< Pair<Integer> > topics = Tools.getPairListInt(response.getValue("topics"), ITEM_DELIMITER, WEIGHT_DELIMITER);
+			List< Pair<String> > customFieldValues  = Tools.getPairListStr(response.getValue("custom"), ITEM_DELIMITER, VALUE_DELIMITER);
+
+			toReturn = new DocumentInfo(docId, title, content, date, keywords, topics, keywordTopics, customFieldValues);
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get list of documents (id, title) of given topic ID. 
+	 * @param collectionId target collection ID
+	 * @param topicId topic ID to retrieve
+	 * @param offset start point to read items
+	 * @param numItems maximum number of items to get
+	 * @param sortDescending if set to true, sort result in descending order of document ID
+	 * @return list of (document ID, title) pairs
+	 */
+	public List<Pair<String> > getDocumentsWithTopic(String collectionId, String topicId, int offset, int numItems, boolean sortDescending)
+	{
+		List<Pair<String> > toReturn = new ArrayList<Pair<String>> ();
+		if (null == collectionId || null == topicId || 0 == collectionId.length() || 0 == topicId.length() || offset < 0 || numItems <= 0)
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			toReturn.add(new Pair<String>("EX_DOC_01", "title_01"));
+			toReturn.add(new Pair<String>("EX_DOC_02", "title_02"));
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "topic_id", "offset", "num_count", "item_delimiter", "value_delimiter", "sort_descending"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_doc_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("topic_id", topicId);
+		request.setValue("offset", Integer.toString(offset));
+		request.setValue("num_count", Integer.toString(numItems));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		request.setValue("sort_descending", sortDescending ? "y" : "n");
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0371", "retrieval of documents with given topic ID wasn't successful: coll_id=" + collectionId + "/topic_id=" + topicId);
+			}
+			else
+			{
+				wrapError("APIL_0371", "retrieval of documents with given topic ID wasn't successful: coll_id=" + collectionId + "/topic_id=" + topicId);				
+			}
+		}
+		else
+		{
+			String docsString = response.getValue("docs");
+			toReturn = Tools.getPairListStr(docsString, ITEM_DELIMITER, VALUE_DELIMITER);
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get number of documents of given topic ID. 
+	 * @param collectionId target collection ID
+	 * @param topicId topic ID to retrieve
+	 * @return count of documents
+	 */
+	public int getDocumentCountWithTopic(String collectionId, String topicId)
+	{
+		int toReturn = 0;
+		
+		if (null == collectionId || null == topicId || 0 == collectionId.length() || 0 == topicId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return 1000;
+		}
+		
+		String [] paramFields = {"collection_id", "topic_id"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_doc_count", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("topic_id", topicId);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0381", "retrieval of number of documents with given topic ID wasn't successful: coll_id=" + collectionId + "/topic_id=" + topicId);
+			}
+			else
+			{
+				wrapError("APIL_0381", "retrieval of number of documents with given topic ID wasn't successful: coll_id=" + collectionId + "/topic_id=" + topicId);
+			}
+		}
+		else
+		{
+			toReturn = Tools.parseInt(response.getValue("count")); 
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get list of document IDs of given topic ID and keyword
+	 * @param collectionId target collection ID
+	 * @param topicId topic ID to retrieve
+	 * @param keyword keyword to retrieve
+	 * @param offset start point to read items
+	 * @param numItems maximum number of items to get
+	 * @param sortDescending if set to true, sort result in descending order of document ID
+	 * @return list of (document ID, title) pairs
+	 */
+	public List<Pair<String> > getDocumentsWithTopicAndKeyword(String collectionId, String topicId, String keyword, int offset, int numItems, boolean sortDescending)
+	{
+		List<Pair<String> > toReturn = new ArrayList<Pair<String>> ();
+		if (null == collectionId || null == topicId || null == keyword || 0 == collectionId.length() || 0 == topicId.length() || 0 == keyword.length() || offset < 0 || numItems <= 0)
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+
+		if (DUMMY)
+		{
+			toReturn.add(new Pair<String>("EX_DOC_01", "title_01"));
+			toReturn.add(new Pair<String>("EX_DOC_02", "title_02"));
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "topic_id", "keyword", "offset", "num_count", "item_delimiter", "value_delimiter", "sort_descending"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_kw_doc_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("topic_id", topicId);
+		request.setValue("keyword", keyword);
+		request.setValue("offset", Integer.toString(offset));
+		request.setValue("num_count", Integer.toString(numItems));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		request.setValue("sort_descending", sortDescending ? "y" : "n");
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0391", "retrieval of documents with given topic ID and keyword wasn't successful: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + "/keyword=" + keyword);
+			}
+			else
+			{
+				wrapError("APIL_0391", "retrieval of documents with given topic ID and keyword wasn't successful: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + "/keyword=" + keyword);
+			}
+
+		}
+		else
+		{
+			String docsString = response.getValue("docs");
+			toReturn = Tools.getPairListStr(docsString, ITEM_DELIMITER, VALUE_DELIMITER);
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Get number of documents of given topic ID and keyword 
+	 * @param collectionId target collection ID
+	 * @param topicId topic ID to retrieve
+	 * @param keyword keyword to retrieve
+	 * @return count of documents
+	 */
+	public int getDocumentCountWithTopicAndKeyword(String collectionId, String topicId, String keyword)
+	{
+		int toReturn = 0;
+		if (null == collectionId || null == topicId || null == keyword || 0 == collectionId.length() || 0 == topicId.length() || 0 == keyword.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return 1000;
+		}
+		
+		String [] paramFields = {"collection_id", "topic_id", "keyword"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_kw_doc_count", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("topic_id", topicId);
+		request.setValue("keyword", keyword);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0401", "retrieval of number of documents with given topic ID and keyword wasn't successful: coll_id="   
+						+ collectionId + "/topic_id=" + topicId + "/keyword=" + keyword);
+			}
+			else
+			{
+				wrapError("APIL_0401", "retrieval of number of documents with given topic ID and keyword wasn't successful: coll_id="   
+						+ collectionId + "/topic_id=" + topicId + "/keyword=" + keyword);
+			}
+		}
+		else
+		{
+			toReturn = Tools.parseInt(response.getValue("count")); 
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get list of topics with some additional metadata. 
+	 * @param collectionId collection ID
+	 * @param offset start position of index to get topics
+	 * @param numCount number of topics to get
+	 * @param maxKeywords maximum number of (related) keywords per topic
+	 * @param sortField field for sorting list. (Use one in SortField class: ID, LABEL, DOC_COUNT) 
+	 * @param sortDescending if set to true, sort result in descending order 
+	 * @return list of TopicInfo objects
+	 */
+	public TopicInfo[] getTopicList(String collectionId, int offset, int numCount, int maxKeywords, String sortField, boolean sortDescending)
+	{
+		TopicInfo[] toReturn = new TopicInfo [0];
+		if (!SortField.ID.equals(sortField) && !SortField.LABEL.equals(sortField) && !SortField.DOC_COUNT.equals(sortField))
+		{
+			setError("APIL_0101", "sort field's not valid: " + 
+					(null == sortField ? "(null)" : (sortField.length() == 0 ? "(empty)" : sortField))+ " (allowed: ID, LABEL, DOC_COUNT)");
+		}
+		
+		if (null == collectionId || 0 == collectionId.length() || offset < 0 || numCount <= 0 || maxKeywords < 0)
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+				
+		if (DUMMY)
+		{
+			toReturn = new TopicInfo [10];
+			
+			for (int i=0; i<10; i++)
+			{
+				List<Pair<Integer>> keywords = new ArrayList<Pair<Integer>> ();
+				toReturn[i] = new TopicInfo("EX_TOPIC_0" + i, "LABEL_EX_0" + i, keywords, 1000, false);
+			}
+
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "offset", "num_count", "item_delimiter", "value_delimiter", "max_num_keywords", "sort_field", "sort_descending"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("offset", Integer.toString(offset));
+		request.setValue("num_count", Integer.toString(numCount));
+		request.setValue("max_num_keywords", Integer.toString(maxKeywords));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		request.setValue("sort_field", sortField);
+		request.setValue("sort_descending", sortDescending ? "y" : "n");
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0411", "retrieval of topic information wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0411", "retrieval of topic information wasn't successful: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			List< Pair<String> > topicIdLabels = Tools.getPairListStr(response.getValue("topics"), ITEM_DELIMITER, VALUE_DELIMITER);
+			String [] keywordsArray = StringTool.stringToArray(response.getValue("keywords"), ITEM_DELIMITER);
+			String [] weightsArray = StringTool.stringToArray(response.getValue("weights"), ITEM_DELIMITER);
+			String [] numDocsArray = StringTool.stringToArray(response.getValue("doc_counts"), ITEM_DELIMITER);
+			String [] feedbacksArray = StringTool.stringToArray(response.getValue("feedback"), ITEM_DELIMITER);
+
+			int itemCount = topicIdLabels.size();
+			if (itemCount != keywordsArray.length || itemCount != weightsArray.length
+					 || itemCount != numDocsArray.length  || itemCount != feedbacksArray.length)
+			{
+				setError("APIL_0415", "error in parsing result message for topic info retrieval: coll_id=" + collectionId);
+				return toReturn;
+			}
+
+			toReturn = new TopicInfo[itemCount];
+			for (int i=0; i< toReturn.length; i++)
+			{
+				List< Pair<Integer> > keywordWeightList = new ArrayList< Pair<Integer> > ();
+				
+				String keywordsDesc = keywordsArray[i];
+				String weightsDesc = weightsArray[i];
+				
+				if (keywordsDesc.startsWith(":"))
+					keywordsDesc = " " + keywordsDesc;
+				
+				if (keywordsDesc.endsWith(":"))
+					keywordsDesc = keywordsDesc + " ";
+				
+				while (keywordsDesc.contains("::"))
+				{
+					keywordsDesc = StringTool.replace(keywordsDesc, "::", ": :");
+				}
+				
+				while (weightsDesc.contains("::"))
+				{
+					weightsDesc = StringTool.replace(weightsDesc, "::", ": :");
+				}
+				
+				String [] keywords = StringTool.stringToArray(keywordsDesc, VALUE_DELIMITER);
+				String [] weights = StringTool.stringToArray(weightsDesc, VALUE_DELIMITER);
+				
+				if (keywords.length == weights.length)
+				{
+					for (int x = 0; x<keywords.length; x++)
+					{
+						if (" ".equals(keywords[x]) || " ".equals(weights[x]) || "NULL".equals(keywords[x]))
+							continue;
+						keywordWeightList.add(new Pair<Integer>(keywords[x], new Integer(Tools.parseInt(weights[x]))));
+					}
+				}
+				else
+				{
+					
+				}
+
+				Pair<String> idLabel = topicIdLabels.get(i);
+				toReturn[i] = new TopicInfo(idLabel.key(), idLabel.value(), keywordWeightList, 
+						Tools.parseInt(numDocsArray[i]), "y".equals(feedbacksArray[i]));
+			}			
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get number of topics  
+	 * @param collectionId collection ID
+	 * @return number of topics 
+	 */
+	public int getTopicCount(String collectionId)
+	{
+		int toReturn = 0;
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return 10;
+		}
+		
+		String [] paramFields = {"collection_id"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_count", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0421", "retrieval of number of topics wasn't successful: coll_id=" +  collectionId);
+			}
+			else			
+			{
+				wrapError("APIL_0421", "retrieval of number of topics wasn't successful: coll_id=" +  collectionId);
+			}
+		}
+		else
+		{
+			toReturn = Tools.parseInt(response.getValue("count")); 
+		}
+		
+		return toReturn;
+	}
+	
+	public TopicInfo[] getTopicList(String collectionId, String [] topicIds, int maxKeywords)
+	{
+		TopicInfo[] toReturn = new TopicInfo [0];
+		if (null == collectionId || 0 == collectionId.length() || null == topicIds || 0 == topicIds.length || maxKeywords < 0)
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			toReturn = new TopicInfo [topicIds.length];
+			
+			for (int i=0; i<toReturn.length; i++)
+			{
+				List<Pair<Integer>> keywords = new ArrayList<Pair<Integer>> ();
+				toReturn[i] = new TopicInfo(topicIds[i], "LABEL_EX_" + topicIds[i].substring(topicIds[i].length()-2), keywords, 1000, false);
+			}
+
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "ids", "item_delimiter", "value_delimiter", "max_num_keywords"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_list_id", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("ids", StringTool.arrayToString(topicIds, ITEM_DELIMITER));
+		request.setValue("max_num_keywords", Integer.toString(maxKeywords));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0431", "retrieval of topics with given IDs wasn't successful: coll_id=" 
+						+ collectionId + "/topic_id=" + StringTool.arrayToString(topicIds, ","));
+			}
+			else
+			{
+				wrapError("APIL_0431", "retrieval of topics with given IDs wasn't successful: coll_id=" 
+						+ collectionId + "/topic_id=" + StringTool.arrayToString(topicIds, ","));
+			}
+		}
+		else
+		{
+			List< Pair<String> > topicIdLabels = Tools.getPairListStr(response.getValue("topics"), ITEM_DELIMITER, VALUE_DELIMITER);
+			String [] keywordsArray = StringTool.stringToArray(response.getValue("keywords"), ITEM_DELIMITER);
+			String [] weightsArray = StringTool.stringToArray(response.getValue("weights"), ITEM_DELIMITER);
+			String [] numDocsArray = StringTool.stringToArray(response.getValue("doc_counts"), ITEM_DELIMITER);
+			String [] feedbacksArray = StringTool.stringToArray(response.getValue("feedback"), ITEM_DELIMITER);
+
+			int itemCount = topicIdLabels.size();
+			if (itemCount != keywordsArray.length || itemCount != weightsArray.length
+					 || itemCount != numDocsArray.length  || itemCount != feedbacksArray.length)
+			{
+				setError("APIL_0435", "error in parsing result message for topic info retrieval with given IDs: coll_id="
+						+ collectionId + "/topic_id=" + StringTool.arrayToString(topicIds, ","));
+				return toReturn;
+			}
+
+			toReturn = new TopicInfo[itemCount];
+			for (int i=0; i< toReturn.length; i++)
+			{
+				List< Pair<Integer> > keywordWeightList = new ArrayList< Pair<Integer> > ();
+				
+				String keywordsDesc = keywordsArray[i];
+				String weightsDesc = weightsArray[i];
+				
+				if (keywordsDesc.startsWith(":"))
+					keywordsDesc = " " + keywordsDesc;
+				
+				if (keywordsDesc.endsWith(":"))
+					keywordsDesc = keywordsDesc + " ";
+				
+				while (keywordsDesc.contains("::"))
+				{
+					keywordsDesc = StringTool.replace(keywordsDesc, "::", ": :");
+				}
+				
+				while (weightsDesc.contains("::"))
+				{
+					weightsDesc = StringTool.replace(weightsDesc, "::", ": :");
+				}
+				
+				String [] keywords = StringTool.stringToArray(keywordsDesc, VALUE_DELIMITER);
+				String [] weights = StringTool.stringToArray(weightsDesc, VALUE_DELIMITER);
+				
+				if (keywords.length == weights.length)
+				{
+					for (int x = 0; x<keywords.length; x++)
+					{
+						if (" ".equals(keywords[x]) || " ".equals(weights[x]) || "NULL".equals(keywords[x]))
+							continue;
+						keywordWeightList.add(new Pair<Integer>(keywords[x], new Integer(Tools.parseInt(weights[x]))));
+					}
+				}
+				else
+				{
+					
+				}
+				
+				Pair<String> idLabel = topicIdLabels.get(i);
+				toReturn[i] = new TopicInfo(idLabel.key(), idLabel.value(), keywordWeightList, 
+						Tools.parseInt(numDocsArray[i]), "y".equals(feedbacksArray[i]));
+			}			
+		}
+
+		return toReturn;
+	}
+	
+	/**
+	 * Get searched list of topics with additional metadata. 
+	 * @param collectionId collection ID
+	 * @param query query string against topic label or keyword
+	 * @param offset start position of index to get topics
+	 * @param numCount number of topics to get
+	 * @param maxKeywords maximum number of (related) keywords per topic
+	 * @param sortField field for sorting list. (Use one in SortField class: ID, LABEL, DOC_COUNT) 
+	 * @param sortDescending if set to true, sort result in descending order 
+	 * @return list of TopicInfo objects
+	 */
+	public TopicInfo[] searchTopicList(String collectionId, String query, int offset, int numCount, int maxKeywords, String sortField, boolean sortDescending)
+	{
+		TopicInfo[] toReturn = new TopicInfo [0];
+		if (!SortField.ID.equals(sortField) && !SortField.LABEL.equals(sortField) && !SortField.DOC_COUNT.equals(sortField))
+		{
+			setError("APIL_0101", "sort field's not valid: " + 
+					(null == sortField ? "(null)" : (sortField.length() == 0 ? "(empty)" : sortField))+ " (allowed: ID, LABEL, DOC_COUNT)");
+		}
+		
+		if (null == collectionId || 0 == collectionId.length() || query == null || 0 == query.length() || offset < 0 || numCount <= 0 || maxKeywords < 0)
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+
+		if (DUMMY)
+		{
+			toReturn = new TopicInfo [3];
+			
+			for (int i=0; i<3; i++)
+			{
+				List<Pair<Integer>> keywords = new ArrayList<Pair<Integer>> ();
+				int idx = i*3 + (int)(Math.random() * 3.0);
+				toReturn[i] = new TopicInfo("EX_TOPIC_0" + idx, "LABEL_EX_0" + idx, keywords, 1000, false);
+			}
+
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "query", "offset", "num_count", "item_delimiter", "value_delimiter", "max_num_keywords", "sort_field", "sort_descending"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_list_query", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("query", query);
+		request.setValue("offset", Integer.toString(offset));
+		request.setValue("num_count", Integer.toString(numCount));
+		request.setValue("max_num_keywords", Integer.toString(maxKeywords));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+		request.setValue("sort_field", sortField);
+		request.setValue("sort_descending", sortDescending ? "y" : "n");
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0441", "searching topics with given query wasn't successful: coll_id=" 
+						+ collectionId + "/query=" + query);
+			}
+			else
+			{
+				wrapError("APIL_0441", "searching topics with given query wasn't successful: coll_id=" 
+						+ collectionId + "/query=" + query);
+			}
+		}
+		else
+		{
+			List< Pair<String> > topicIdLabels = Tools.getPairListStr(response.getValue("topics"), ITEM_DELIMITER, VALUE_DELIMITER);
+			String [] keywordsArray = StringTool.stringToArray(response.getValue("keywords"), ITEM_DELIMITER);
+			String [] weightsArray = StringTool.stringToArray(response.getValue("weights"), ITEM_DELIMITER);
+			String [] numDocsArray = StringTool.stringToArray(response.getValue("doc_counts"), ITEM_DELIMITER);
+			String [] feedbacksArray = StringTool.stringToArray(response.getValue("feedback"), ITEM_DELIMITER);
+
+			int itemCount = topicIdLabels.size();
+			if (itemCount != keywordsArray.length || itemCount != weightsArray.length
+					 || itemCount != numDocsArray.length  || itemCount != feedbacksArray.length)
+			{
+				setError("APIL_0445", "error in parsing result message for topic info search: coll_id="
+						+ collectionId + "/query=" + query);
+				return toReturn;
+			}
+
+			toReturn = new TopicInfo[itemCount];
+			for (int i=0; i< toReturn.length; i++)
+			{
+				List< Pair<Integer> > keywordWeightList = new ArrayList< Pair<Integer> > ();
+				
+				String keywordsDesc = keywordsArray[i];
+				String weightsDesc = weightsArray[i];
+				
+				if (keywordsDesc.startsWith(":"))
+					keywordsDesc = " " + keywordsDesc;
+				
+				if (keywordsDesc.endsWith(":"))
+					keywordsDesc = keywordsDesc + " ";
+				
+				while (keywordsDesc.contains("::"))
+				{
+					keywordsDesc = StringTool.replace(keywordsDesc, "::", ": :");
+				}
+				
+				while (weightsDesc.contains("::"))
+				{
+					weightsDesc = StringTool.replace(weightsDesc, "::", ": :");
+				}
+				
+				String [] keywords = StringTool.stringToArray(keywordsDesc, VALUE_DELIMITER);
+				String [] weights = StringTool.stringToArray(weightsDesc, VALUE_DELIMITER);
+				
+				if (keywords.length == weights.length)
+				{
+					for (int x = 0; x<keywords.length; x++)
+					{
+						if (" ".equals(keywords[x]) || " ".equals(weights[x]) || "NULL".equals(keywords[x]))
+							continue;
+						keywordWeightList.add(new Pair<Integer>(keywords[x], new Integer(Tools.parseInt(weights[x]))));
+					}
+				}
+				else
+				{
+					
+				}
+				
+				Pair<String> idLabel = topicIdLabels.get(i);
+				toReturn[i] = new TopicInfo(idLabel.key(), idLabel.value(), keywordWeightList, 
+						Tools.parseInt(numDocsArray[i]), "y".equals(feedbacksArray[i]));
+			}			
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Get searched number of topics  
+	 * @param collectionId collection ID
+	 * @param query query string against topic label or keyword
+	 * @return number of topics 
+	 */
+	public int searchTopicCount(String collectionId, String query)
+	{
+		int toReturn = 0;
+		if (null == collectionId || 0 == collectionId.length() || query == null || 0 == query.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+
+		if (DUMMY)
+		{
+			return 3;
+		}
+		
+		String [] paramFields = {"collection_id", "query"};		
+		SocketMessage request = new SocketMessage("retriever", "topic_count_query", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("query", query);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0445", "getting number of topics with given query wasn't successful: coll_id="
+						+ collectionId + "/query=" + query);
+			}
+			else
+			{
+				wrapError("APIL_0445", "getting number of topics with given query wasn't successful: coll_id="
+						+ collectionId + "/query=" + query);
+			}
+		}
+		else
+		{
+			toReturn = Tools.parseInt(response.getValue("count")); 
+		}
+		return toReturn;
+	}
+	
+//	/** 
+//	 * Get associated (top N) keywords of given topic with highest weights.
+//	 * @param collectionId collection ID
+//	 * @param topicId topic ID given
+//	 * @param maxCount top N count
+//	 * @return list of (keyword, weight) pairs (weight: 1 to 10000)
+//	 */
+//	public List< Pair<Integer> > getTopicKeywords(String collectionId, String topicId, int maxCount)
+//	{
+//		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+//		
+//		if(DUMMY)
+//		{
+//			for (int i=0; i<maxCount; i++)
+//			{
+//				toReturn.add(new Pair<Integer> ("key_"+i, new Integer(8000/(i+1))));
+//			}
+//			
+//			return toReturn;
+//		}
+//		
+//		return toReturn;
+//	}
+	
+	////////////////////////////////////////////////////////
+	/// Repository Retrieval Methods (Custom Field)
+	////////////////////////////////////////////////////////
+	
+	/**
+	 * Get list of custom field analysis IDs in the given collection.
+	 * (shows lists which are registered in the server configuration file)
+	 * @param collectionId collection id to find custom field analysis IDs
+	 * @return list of custom field analysis IDs in the collection 
+	 */
+	public String[] getCustomFieldAnalysisIds(String collectionId)
+	{
+		String[] toReturn = new String [0];
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "item_delimiter"};		
+		SocketMessage request = new SocketMessage("teasifter", "custom_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0451", "getting list of custom field analyis setting IDs wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0451", "getting list of custom field analyis settings IDs wasn't successful: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			String [] idsArray = StringTool.stringToArray(response.getValue("custom_ids"), ITEM_DELIMITER);
+			
+			if (null != idsArray)
+				toReturn = idsArray;
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Get list of custom field analysis Information lists in the given collection.
+	 * (shows lists which are already analyzed only)
+	 * @deprecated
+	 * @param collectionId collection id to find custom field analysis IDs
+	 * @return list of custom field analysis info objects in the collection 
+	 */
+	public CustomFieldAnalysisInfo[] getCustomFieldAnalysisInfos(String collectionId)
+	{
+		CustomFieldAnalysisInfo[] toReturn = new CustomFieldAnalysisInfo [0];
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			toReturn = new CustomFieldAnalysisInfo [3];
+			
+			toReturn[0] = new CustomFieldAnalysisInfo("CUSTOM_ANALYSIS_01", "AUTHOR", CustomFieldAnalysisInfo.EnumFrequencyFieldType.KEYWORD) ;
+			toReturn[1] = new CustomFieldAnalysisInfo("CUSTOM_ANALYSIS_02", "DEPT", CustomFieldAnalysisInfo.EnumFrequencyFieldType.KEYWORD) ;
+			toReturn[2] = new CustomFieldAnalysisInfo("CUSTOM_ANALYSIS_03", "TEAM", CustomFieldAnalysisInfo.EnumFrequencyFieldType.KEYWORD) ;
+
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "item_delimiter", "value_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "custom_analysis_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("value_delimiter", VALUE_DELIMITER);
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0451", "getting list of custom field analyis settings wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0451", "getting list of custom field analyis settings wasn't successful: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			String [] fieldInfoArray = StringTool.stringToArray(response.getValue("field_info"), ITEM_DELIMITER);
+			String [] intervalInfoArray = StringTool.stringToArray(response.getValue("datefield_info"), ITEM_DELIMITER);
+			
+			toReturn = new CustomFieldAnalysisInfo [fieldInfoArray.length];
+			Map<String, CustomFieldAnalysisInfo> idInfoMap = new HashMap<String, CustomFieldAnalysisInfo> ();
+			for (int i=0; i<fieldInfoArray.length; i++)
+			{
+				String [] fields = StringTool.stringToArray(Tools.padEmptyItem(fieldInfoArray[i], VALUE_DELIMITER), VALUE_DELIMITER);
+				if (3 != fields.length)
+				{
+					toReturn = new CustomFieldAnalysisInfo [0];
+					setError("APIL_0455", "error in parsing result message for custom field analysis info (general): coll_id=" + collectionId);
+					return toReturn;
+				}
+				String keyField = " ".equals(fields[1]) ? "" : fields[1];
+				
+				CustomFieldAnalysisInfo info = new CustomFieldAnalysisInfo(fields[0], keyField, fields[2]);
+				toReturn[i] = info;
+				idInfoMap.put(info.getId(), info);
+			}
+			
+			for (int i=0; i<intervalInfoArray.length; i++)
+			{
+				String [] intervalInfo = StringTool.stringToArray(intervalInfoArray[i], VALUE_DELIMITER);
+				if (4 != intervalInfo.length)
+				{
+					continue;
+					/*toReturn = new CustomFieldAnalysisInfo [0];
+					setError("APIL_0456", "error in parsing result message for custom field analysis info (interval info): coll_id=" + collectionId);
+					return toReturn;*/
+				}
+				CustomFieldAnalysisInfo info = idInfoMap.get(intervalInfo[0]);
+				if (null == info) continue;
+				info.addInterval(intervalInfo[3].trim(), intervalInfo[1], intervalInfo[2]);
+			}
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Get list of custom fields in the given collection.
+	 * @param collectionId collection id to find custom field IDs
+	 * @return list of custom fields in the collection 
+	 */
+	public String[] getCustomFields(String collectionId)
+	{
+		String[] toReturn = new String [0];
+		if (null == collectionId || 0 == collectionId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			toReturn = new String[3];
+			toReturn[0] = "CUSTOM_01";
+			toReturn[1] = "CUSTOM_02";
+			toReturn[2] = "CUSTOM_03";
+			
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "item_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "custom_field_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0461", "getting list of custom fields wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0461", "getting list of custom fields wasn't successful: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			toReturn = StringTool.stringToArray(response.getValue("fields"), ITEM_DELIMITER);
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Get list of items in the given custom field.
+	 * @param collectionId collection id
+	 * @param customField custom field name given
+	 * @param offset start point to read items
+	 * @param numItems (maximum) number of items to get
+	 * @return list of custom field items in the collection 
+	 */
+	public String[] getCustomFieldItems(String collectionId, String customField, int offset, int numItems)
+	{
+		String[] toReturn = new String [0];
+		if (null == collectionId || null == customField || 0 == collectionId.length() 
+				|| 0 == customField.length() || 0 > offset || 0 >= numItems)
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			toReturn = new String[5];
+			toReturn[0] = "item_01";
+			toReturn[1] = "item_02";
+			toReturn[2] = "item_03";
+			toReturn[3] = "item_04";
+			toReturn[4] = "item_05";
+		}
+		String [] paramFields = {"collection_id", "custom_field_name", "offset", "num_count", "item_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "custom_field_item_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("custom_field_name", customField);
+		request.setValue("offset", Integer.toString(offset));
+		request.setValue("num_count", Integer.toString(numItems));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0471", "getting list of custom field values wasn't successful: coll_id=" + collectionId);
+			}
+			else
+			{
+				wrapError("APIL_0471", "getting list of custom field values wasn't successful: coll_id=" + collectionId);
+			}
+		}
+		else
+		{
+			toReturn = StringTool.stringToArray(response.getValue("values"), ITEM_DELIMITER);
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Get count of items in the given custom field.
+	 * @param collectionId collection id
+	 * @param customField custom field name given
+	 * @return count of custom field items in the collection 
+	 */
+	public int getCustomFieldItemsCount(String collectionId, String customField)
+	{
+		int toReturn = 0;
+		if (null == collectionId || null == customField || 0 == collectionId.length() || 0 == customField.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return 5;
+		}
+		
+		String [] paramFields = {"collection_id", "custom_field_name", "item_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "custom_field_item_count", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("custom_field_name", customField);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0481", "getting number of unique custom field values wasn't successful: coll_id=" + collectionId + "/custom_field=" + customField);
+			}
+			else
+			{
+				wrapError("APIL_0481", "getting number of unique custom field values wasn't successful: coll_id=" + collectionId + "/custom_field=" + customField);
+			}
+
+		}
+		else
+		{
+			toReturn = Tools.parseInt(response.getValue("count")); 
+		}
+		return toReturn;
+	}
+
+	/**
+	 * Get custom field trend (time series) information of given analysis ID, custom field value, and keyword constraint(or topic ID, or without constraint for document) 
+	 * @param collectionId collection ID
+	 * @param analysisId custom field analysis ID
+	 * @param fieldValue custom field value 
+	 * @param query keyword or topic ID for constraint (follows analysis setting: KEYWORD or TOPIC. "" in the case of DOCUMENT) 
+	 * @param beginDate begin date (form of YYYYmmdd)
+	 * @param endDate end date (form of YYYYmmdd)
+	 * @return (date_label, freq) pairs. date_label: YYYYmmdd form
+	 */
+	public List< Pair<Integer> > getCustomTrend(String collectionId, String analysisId, String fieldValue, String query, String beginDate, String endDate)
+	{
+		return getCustomTrend(collectionId, analysisId, fieldValue, query, beginDate, endDate, IntervalType.MONTH);
+	}
+
+	/**
+	 * Get custom field trend (time series) information of given analysis ID, custom field value, and keyword constraint(or topic ID, or without constraint for document) 
+	 * @param collectionId collection ID
+	 * @param analysisId custom field analysis ID
+	 * @param fieldValue custom field value 
+	 * @param query keyword or topic ID for constraint (follows analysis setting: KEYWORD or TOPIC. "" in the case of DOCUMENT) 
+	 * @param beginDate begin date (form of YYYYmmdd)
+	 * @param endDate end date (form of YYYYmmdd)
+	 * @param interval type of trend interval (DAY|MONTH|YEAR)
+	 * @return (date_label, freq) pairs. date_label: YYYYmmdd form
+	 */
+	public List< Pair<Integer> > getCustomTrend(String collectionId, String analysisId, String fieldValue, String query, String beginDate, String endDate, String interval)
+	{
+		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+		// query can be length of 0 (in the case of "DOCUMENT" as Frequency Type), so it's not included in wrong argument condition
+		if (null == collectionId || null == analysisId || null == fieldValue 
+				|| null == query || null == beginDate || null == endDate 
+				|| 0 == collectionId.length() || 0 == analysisId.length() 
+				|| 0 == fieldValue.length() || 0 == beginDate.length() || 0 == endDate.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (!IntervalType.DAY.equals(interval) && !IntervalType.MONTH.equals(interval) && !IntervalType.YEAR.equals(interval))
+		{
+			setError("APIL_0165", "interval type's not valid: " + interval);
+			return toReturn;
+		}
+		
+		if(DUMMY)
+		{
+			for (int i=0; i<12; i++)
+			{
+				String headFill = "00".substring(0, 1-(int)Math.log10(i+1));
+				toReturn.add(new Pair<Integer> ("2011"+headFill+(i+1)+"01", new Integer((int)(Math.random()*1000*i) + 1) ));
+			}
+			
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "analysis_id", "field_value", "query", "date_begin", "date_end", "interval", "item_delimiter", "freq_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "custom_time_series", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("analysis_id", analysisId);
+		request.setValue("field_value", fieldValue);
+		request.setValue("query", query);
+		request.setValue("date_begin", beginDate);
+		request.setValue("date_end", endDate);
+		request.setValue("interval", interval);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("freq_delimiter", FREQ_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0491", "getting custom trend wasn't successful: coll_id=" 
+						+ collectionId + "/analysis_id=" + analysisId + "/field_value=" + fieldValue + "/query=" + query);
+			}
+			else
+			{
+				wrapError("APIL_0491", "getting custom trend wasn't successful: coll_id=" 
+						+ collectionId + "/analysis_id=" + analysisId + "/field_value=" + fieldValue + "/query=" + query);
+			}
+		}
+		else
+		{
+			toReturn = Tools.getPairListInt(response.getValue("time_series"), ITEM_DELIMITER, FREQ_DELIMITER); 
+		}
+		
+		return toReturn; 
+	}
+	
+	/**
+	 * Get trend (time series) information of given analysis ID and keyword constraint(or topic ID, or without constraint for document)
+	 * (It's general case without specific custom field. But setting for custom field analysis is required)   
+	 * @param collectionId collection ID
+	 * @param analysisId custom field analysis ID
+	 * @param query keyword or topic ID for constraint (follows analysis setting: KEYWORD or TOPIC. "" in the case of DOCUMENT) 
+	 * @param beginDate begin date (form of YYYYmmdd)
+	 * @param endDate end date (form of YYYYmmdd)
+	 * @return (date_label, freq) pairs. date_label: YYYYmmdd form
+	 */
+	public List< Pair<Integer> > getTrend(String collectionId, String analysisId, String query, String beginDate, String endDate)
+	{
+		return getTrend(collectionId, analysisId, query, beginDate, endDate, IntervalType.MONTH);
+	}
+	
+	/**
+	 * Get trend (time series) information of given analysis ID and keyword constraint(or topic ID, or without constraint for document)
+	 * (It's general case without specific custom field. But setting for custom field analysis is required)   
+	 * @param collectionId collection ID
+	 * @param analysisId custom field analysis ID
+	 * @param query keyword or topic ID for constraint (follows analysis setting: KEYWORD or TOPIC. "" in the case of DOCUMENT) 
+	 * @param beginDate begin date (form of YYYYmmdd)
+	 * @param endDate end date (form of YYYYmmdd)
+	 * @param interval type of trend interval (DAY|MONTH|YEAR)
+	 * @return (date_label, freq) pairs. date_label: YYYYmmdd form
+	 */
+	public List< Pair<Integer> > getTrend(String collectionId, String analysisId, String query, String beginDate, String endDate, String interval)
+	{
+		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+		if (null == collectionId || null == analysisId 
+				|| null == query || null == beginDate || null == endDate 
+				|| 0 == collectionId.length() || 0 == analysisId.length() 
+				|| 0 == beginDate.length() || 0 == endDate.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (!IntervalType.DAY.equals(interval) && !IntervalType.MONTH.equals(interval) && !IntervalType.YEAR.equals(interval))
+		{
+			setError("APIL_0165", "interval type's not valid: " + interval);
+			return toReturn;
+		}
+		
+		if(DUMMY)
+		{
+			for (int i=0; i<12; i++)
+			{
+				String headFill = "00".substring(0, 1-(int)Math.log10(i+1));
+				toReturn.add(new Pair<Integer> ("2011"+headFill+(i+1)+"01", new Integer((int)(Math.random()*1000*i) + 1) ));
+			}
+			
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "analysis_id", "query", "date_begin", "date_end", "interval", "item_delimiter", "freq_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "time_series", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("analysis_id", analysisId);
+		request.setValue("query", query);
+		request.setValue("date_begin", beginDate);
+		request.setValue("date_end", endDate);
+		request.setValue("interval", interval);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("freq_delimiter", FREQ_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0501", "getting trend wasn't successful: coll_id=" 
+					+ collectionId + "/analysis_id=" + analysisId + "/query=" + query);
+			}
+			else
+			{
+				wrapError("APIL_0501", "getting trend wasn't successful: coll_id=" 
+					+ collectionId + "/analysis_id=" + analysisId + "/query=" + query);
+			}
+		}
+		else
+		{
+			toReturn = Tools.getPairListInt(response.getValue("time_series"), ITEM_DELIMITER, FREQ_DELIMITER); 
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Get custom field information (keyword|topic distribution) of given analysis ID and custom field value. 
+	 * @param collectionId collection ID
+	 * @param analysisId custom field analysis ID
+	 * @param fieldValue custom field value as query(constraint)
+	 * @param maxCount top N count for items.
+	 * @return (keyword | topic_id, freq) pairs. 
+	 */
+	public List< Pair<Integer> > getCustomFieldInfoWithCount(String collectionId, String analysisId, String fieldValue, int maxCount)
+	{
+		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+
+		if (null == collectionId || null == analysisId || null == fieldValue || 0 >= maxCount
+				|| 0 == collectionId.length() || 0 == analysisId.length() || 0 == fieldValue.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+			
+		if(DUMMY)
+		{
+			for (int i=0; i<maxCount; i++)
+			{
+				String headFill = "00".substring(0, 1-(int)Math.log10(i+1));
+				toReturn.add(new Pair<Integer> ("key_"+headFill+(i+1), new Integer((int)(9000/(i+1)) + 1) ));
+			}
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "analysis_id", "field_value", "max_count", "date_begin", "date_end", "item_delimiter", "freq_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "custom_item_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("analysis_id", analysisId);
+		request.setValue("field_value", fieldValue);
+		request.setValue("max_count", Integer.toString(maxCount));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("freq_delimiter", FREQ_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0511", "getting keyword/topic distribution with given query wasn't successful: coll_id=" 
+						+  collectionId + "/analysis_id=" + analysisId + "/field_vaule=" + fieldValue);
+			}
+			else
+			{
+				wrapError("APIL_0511", "getting keyword/topic distribution with given query wasn't successful: coll_id=" 
+						+  collectionId + "/analysis_id=" + analysisId + "/field_vaule=" + fieldValue);
+			}
+		}
+		else
+		{
+			toReturn = Tools.getPairListInt(response.getValue("values"), ITEM_DELIMITER, FREQ_DELIMITER); 
+		}
+		return toReturn; 
+	}
+	
+	/**
+	 * Get top N items in the given custom field sorted by frequencies. (custom field retrieval)
+	 * @param collectionId collection id
+	 * @param analysisId custom field analysis ID
+	 * @param query value constraint (can be given value in TOPIC or KEYWORD, according to custom field analysis settings)
+	 * @param maxCount maximum number of items to get
+	 * @return (custom_field_item, freq) pairs
+	 */
+	public List< Pair<Integer> > getCustomFieldItemsWithCount(String collectionId, String analysisId, String query, int maxCount)
+	{
+		List< Pair<Integer> >  toReturn = new ArrayList< Pair<Integer> > ();
+		if (null == collectionId || null == analysisId || null == query || 0 >= maxCount
+				|| 0 == collectionId.length() || 0 == analysisId.length() || 0 == query.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if(DUMMY)
+		{
+			for (int i=0; i<maxCount; i++)
+			{
+				String headFill = "00".substring(0, 1-(int)Math.log10(i+1));
+				toReturn.add(new Pair<Integer> ("item_"+headFill+(i+1), new Integer((int)(9000/(i+1)) + 1) ));
+			}
+			
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "analysis_id", "query", "max_count", "date_begin", "date_end", "item_delimiter", "freq_delimiter"};		
+		SocketMessage request = new SocketMessage("retriever", "custom_value_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("analysis_id", analysisId);
+		request.setValue("query", query);
+		request.setValue("max_count", Integer.toString(maxCount));
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		request.setValue("freq_delimiter", FREQ_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0521", "getting custom field item distribution with given query wasn't successful: coll_id=" 
+						+  collectionId + "/analysis_id=" + analysisId + "/query=" + query);
+			}
+			else
+			{
+				wrapError("APIL_0521", "getting custom field item distribution with given query wasn't successful: coll_id=" 
+						+  collectionId + "/analysis_id=" + analysisId + "/query=" + query);
+			}
+		}
+		else
+		{
+			toReturn = Tools.getPairListInt(response.getValue("values"), ITEM_DELIMITER, FREQ_DELIMITER); 
+		}
+		
+		return toReturn; 
+
+	}
+	
+	/**
+	 * Get top N authors who produced documents about given topic.
+	 * @param collectionId collection ID
+	 * @param topicId topic ID to query
+	 * @param count N value
+	 * @return top N authors (unique values)
+	 */
+	public String[] getTopAuthors(String collectionId, String topicId, int count)
+	{
+		String [] toReturn = new String[0];
+		
+		if (null == collectionId || null == topicId || 0 >= count
+				|| 0 == collectionId.length() || 0 == topicId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		List< Pair<Integer> > items = getCustomFieldItemsWithCount(collectionId, TeaGlobal.AUTHOR_TOPIC, topicId, count);
+		
+		// reset error code & message, because it arouse confusion in PK usage
+		recentErrorCode_ = "";
+		recentErrorMessage_= "";
+		recentServerErrorCode_ = "";
+		recentServerErrorMessage_= "";
+
+		toReturn = new String [items.size()];
+		for (int i=0; i<items.size(); i++)
+			toReturn[i] = items.get(i).key();
+		
+		return toReturn;
+	}
+	
+	////////////////////////////////////////////////////////
+	/// User Feedback Methods
+	////////////////////////////////////////////////////////
+	
+	/**
+	 * Modify topic label.
+	 * @param collectionId collection ID to apply
+	 * @param topicId topic ID to modify
+	 * @param newLabel new topic label
+	 * @return true if accepted.
+	 */
+	public boolean modifyTopicLabel(String collectionId, String topicId, String newLabel)
+	{
+		final int labelSizeLimit = 30;
+		
+		boolean toReturn = false;
+		if (null == collectionId || null == topicId || null == newLabel
+				|| 0 == collectionId.length() || 0 == topicId.length() || 0 == newLabel.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (newLabel.length() > labelSizeLimit)
+		{
+			setError("APIL_0532", "label size cannot exceed " + labelSizeLimit + " characters");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "topic_id", "new_topic"};		
+		SocketMessage request = new SocketMessage("roaster", "modify_topic_label", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("topic_id", topicId);
+		request.setValue("new_topic", newLabel);
+		
+        /* 
+   		잘못된 topic_id 에 대한 오류
+        <error>
+        	<code>TEAL_8453</code>
+        	<message>[request_id=201203082] Failed to create a process module by wrong value of a parameter(=topic_id)</message>
+		</error>
+		
+		존재하지 않는 topic_id 에 대한 오류
+		<error>
+        	<code>TEAL_4410</code>
+        	<message>Topic ID <1000> does not exist.</message>
+		</error> 
+		*/
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0531", "failed in modifying topic label: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + "/label=" + newLabel);
+			}
+			else
+			{
+				wrapError("APIL_0531", "failed in modifying topic label: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + "/label=" + newLabel);
+			}
+		}
+		else
+		{
+			toReturn = true; 
+		}
+	
+		return toReturn;
+	}
+	
+//	/**
+//	 * Add a new topic.
+//	 * @param collectionId collection ID to apply
+//	 * @param topicId topic ID to add
+//	 * @param label topic label
+//	 * @return true if successful
+//	 */
+//	public boolean addTopic(String collectionId, String topicId, String label)
+//	{
+//		boolean toReturn = false;
+//		if (null == collectionId || null == topicId || null == label
+//				|| 0 == collectionId.length() || 0 == topicId.length() || 0 == label.length())
+//		{
+//			setError("APIL_0100", "argument's not valid.");
+//			return toReturn;
+//		}
+//		
+//		if (DUMMY)
+//		{
+//			return toReturn;
+//		}
+//		String [] paramFields = {"collection_id", "topic_id", "topic_label"};		
+//		SocketMessage request = new SocketMessage("roaster", "topic_add", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+//		request.setValue("collection_id", collectionId);
+//		request.setValue("topic_id", topicId);
+//		request.setValue("topic_label", label);
+//		
+//		SocketMessage response = handleMessage(request);
+//		if (!isSuccessful(response))
+//		{
+//			if ("".equals(response.getErrorCode()))
+//			{
+//				setError("APIL_0541", "failed in adding a new topic: " 
+//						+ collectionId + "/" + topicId + "/" + label);
+//			}
+//		}
+//		else
+//		{
+//			toReturn = true; 
+//		}
+//		
+//		return toReturn;
+//	}
+//	
+//	/**
+//	 * Remove topic.
+//	 * @param collectionId collection ID to apply
+//	 * @param topicId topic ID to delete
+//	 * @return true if successful
+//	 */
+//	public boolean removeTopic(String collectionId, String topicId)
+//	{
+//		boolean toReturn = false;
+//		if (null == collectionId || null == topicId
+//				|| 0 == collectionId.length() || 0 == topicId.length())
+//		{
+//			setError("APIL_0100", "argument's not valid.");
+//			return toReturn;
+//		}
+//		
+//		if (DUMMY)
+//		{
+//			return toReturn;
+//		}
+//		String [] paramFields = {"collection_id", "topic_id"};		
+//		SocketMessage request = new SocketMessage("roaster", "topic_remove", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+//		request.setValue("collection_id", collectionId);
+//		request.setValue("topic_id", topicId);
+//		
+//		SocketMessage response = handleMessage(request);
+//		if (!isSuccessful(response))
+//		{
+//			if ("".equals(response.getErrorCode()))
+//			{
+//				setError("APIL_0551", "failed in removing a topic: " + collectionId + "/" + topicId);
+//			}
+//		}
+//		else
+//		{
+//			toReturn = true; 
+//		}
+//		
+//		return toReturn;
+//	}
+	
+	/**
+	 * Get feedback keywords list of given topic. 
+	 * @param collectionId collection ID to get feedbacks
+	 * @param topicId topic ID to get feedbacks
+	 * @param isPositive true if they're positive feedbacks
+	 * @return array of feedback keywords
+	 */
+	public String[] getFeedbackKeywords(String collectionId, String topicId, boolean isPositive)
+	{
+		String [] toReturn = new String [0];
+		if (null == collectionId || null == topicId
+				|| 0 == collectionId.length() || 0 == topicId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "topic_id", "is_positive", "item_delimiter"};		
+		SocketMessage request = new SocketMessage("roaster", "feedback_list", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("topic_id", topicId);
+		request.setValue("is_positive", isPositive ? "y" : "n");
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0561", "failed in getting feedback keywords: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + " (" + (isPositive ? "positive" : "negative")+ ")");
+			}
+			else
+			{
+				wrapError("APIL_0561", "failed in getting feedback keywords: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + " (" + (isPositive ? "positive" : "negative")+ ")");
+			}
+		}
+		else
+		{
+			toReturn = StringTool.stringToArray(response.getValue("keywords"), ITEM_DELIMITER);
+		}
+		
+		return toReturn;
+	}
+	
+	/**
+	 * Set feedback keyword list of given topic.
+	 * @param collectionId collection ID to set feedbacks
+	 * @param topicId topic ID to set feedbacks
+	 * @param keywords keywords to set as feedbacks (array of size 0 for reset keywords)
+	 * @param isPositive isPositive true if feedbacks're positive feedbacks
+	 * @return true if successful.
+	 */
+	public boolean setFeedbackKeywords(String collectionId, String topicId, String [] keywords, boolean isPositive)
+	{
+		final int maxFeedbackCount = 20;
+		final int minWordSize = 2;
+		final int maxWordSize = 15; 
+		
+		boolean toReturn = false;
+		if (null == collectionId || null == topicId || null == keywords
+				|| 0 == collectionId.length() || 0 == topicId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		//allowed word count: maxFeedbackCount
+		if (keywords.length > maxFeedbackCount)
+		{
+			setError("APIL_0572", "feedbacks cannot exceed " + maxFeedbackCount + " keywords");
+			return toReturn;
+		}
+		
+		for (int i=0; i<keywords.length; i++)
+		{
+			String word = keywords[i];
+			if (word == null)
+			{
+				setError("APIL_0573", "out of feedback keyword length range (" + minWordSize + " ~ " + maxWordSize +"): NULL string");
+				return toReturn;
+			}
+			else if (word.length() < minWordSize || word.length() > maxWordSize)
+			{
+				setError("APIL_0573", "out of feedback keyword length range (" + minWordSize + " ~ " + maxWordSize +"): " + word.length() + " characters");
+				return toReturn;
+			}
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		String [] paramFields = {"collection_id", "topic_id", "keywords", "is_positive", "item_delimiter"};		
+		SocketMessage request = new SocketMessage("roaster", "feedback_set", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("topic_id", topicId);
+		request.setValue("keywords", StringTool.arrayToString(keywords, ITEM_DELIMITER));
+		request.setValue("is_positive", isPositive ? "y" : "n");
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			String termsNotRegistered = response.getValue("terms_not_registered");
+			String termsFailed = response.getValue("terms_failed");
+			
+			StringBuffer resultFeedback = new StringBuffer();
+			if (0 != termsNotRegistered.length())
+			{
+				resultFeedback.append(" NOT_REGISTERED{");
+				resultFeedback.append(termsNotRegistered);
+				resultFeedback.append("}");
+			}
+			if (0 != termsFailed.length())
+			{
+				resultFeedback.append(" FAILED{");
+				resultFeedback.append(termsFailed);
+				resultFeedback.append("}");				
+			}
+			
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0571", "failed in setting feedback keywords: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + " (" + (isPositive ? "positive" : "negative")+ ")");
+			}
+			else
+			{
+				if (0 != resultFeedback.length())
+					wrapError("APIL_0575", "failed in setting some of feedback keywords: coll_id=" 
+							+ collectionId + "/topic_id=" + topicId + " (" + (isPositive ? "positive" : "negative")+ ")"
+							+ resultFeedback.toString());
+				else
+					wrapError("APIL_0571", "failed in setting feedback keywords: coll_id=" 
+						+ collectionId + "/topic_id=" + topicId + " (" + (isPositive ? "positive" : "negative")+ ")");
+			}
+		}
+		else
+		{
+			toReturn = true;
+		}
+		
+		return toReturn;
+	}
+	
+	////////////////////////////////////////////////////////
+	/// Dictionary Manipulation, Etc.
+	////////////////////////////////////////////////////////
+	
+	/*
+	 * Get list of dictionaries
+	 * @return array of wrappers for dictionary item
+	 */
+	/*public DictionaryInfo[] getDictionaryList()
+	{
+		DictionaryInfo[] toReturn = new DictionaryInfo [0];
+		
+		if (DUMMY)
+		{
+			toReturn = new DictionaryInfo[2];
+			toReturn[0] = new DictionaryInfo("global_black", "blackwords.txt", true);
+			toReturn[1] = new DictionaryInfo("global_white", "whitewords.txt", false);
+			return toReturn;
+		}
+		
+		return toReturn;
+	}*/
+	
+	/**
+	 * Get content of dictionary
+	 * @param dicId dictionary ID to get
+	 * @return content of dictionary
+	 */
+	public String [] getDictionary(String dicId)
+	{
+		String [] toReturn = new String [0];
+		if (null == dicId || 0 == dicId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (!TeaGlobal.BLACKWORD_ID.equals(dicId) && !TeaGlobal.WHITEWORD_ID.equals(dicId))
+		{
+			setError("APIL_0151", "dictionary ID's not valid: dic_id=" + dicId + " (allowed: " + TeaGlobal.BLACKWORD_ID + "," + TeaGlobal.WHITEWORD_ID +")");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		
+		String [] paramFields = {"dic_id"};		
+		SocketMessage request = new SocketMessage("extractor", "dic_content", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("dic_id", dicId);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0581", "failed in getting dictionary: dic_id=" + dicId);
+			}
+			else
+			{
+				wrapError("APIL_0581", "failed in getting dictionary: dic_id=" + dicId);
+			}
+		}
+		else
+		{
+			toReturn = StringTool.stringToArray(response.getValue("content"), "\n");
+		}
+		
+		return toReturn;	
+	}
+	
+	/**
+	 * Request distribution of dictionary.
+	 * request for entire servers to change contents of dictionary with given dictionary content.
+	 * 
+	 * @param dicId dictionaryId
+	 * @param terms dictionary terms to be replaced
+	 * @return request ID (not "" if successful)
+	 */
+	public String requestDistributeDictionary(String dicId, String [] terms)
+	{
+		String toReturn = "";
+		if (null == dicId || null == terms || 0 == dicId.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (!TeaGlobal.BLACKWORD_ID.equals(dicId) && !TeaGlobal.WHITEWORD_ID.equals(dicId))
+		{
+			setError("APIL_0151", "dictionary ID's not valid: dic_id=" + dicId + " (allowed: " + TeaGlobal.BLACKWORD_ID + "," + TeaGlobal.WHITEWORD_ID +")");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return Tools.getUniqueId();
+		}
+		
+		String [] paramFields = {"dic_id", "content"};		
+		SocketMessage request = new SocketMessage("extractor", "dic_dist", PriorityType.NORMAL, TransferType.SINGLE_WAY, "", paramFields);
+		request.setValue("dic_id", dicId);
+		StringBuffer toSend = new StringBuffer();
+		toSend.append("<![CDATA[");
+		for (int i=0; i<terms.length; i++)
+		{
+			toSend.append(terms[i]);
+			toSend.append('\n');
+		}
+		toSend.append("]]>");
+		request.setValue("content", toSend.toString());
+
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0591", "failed in request for distribution of dictionary: dic_id=" + dicId);
+			}
+			else
+			{
+				wrapError("APIL_0591", "failed in request for distribution of dictionary: dic_id=" + dicId);
+			}
+		}
+		else
+		{
+			toReturn = response.getRequestId();
+		}
+		
+		return toReturn;	
+	}
+	
+	/**
+	 * Get a metadata group item with given ID.
+	 * @param collectionId Collection ID
+	 * @param groupId Group ID
+	 * @param id id of given metadata group item 
+	 * @return wrapper object for metadata group item
+	 */
+	public MetadataGroup getMetadataGroup(String collectionId, String groupId, String id)
+	{
+		MetadataGroup toReturn = new MetadataGroup(id);
+		if (null == collectionId || null == groupId || null == id ||
+				0 == collectionId.length() || 0 == groupId.length() || 0 == id.length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "group_id", "id", "item_delimiter"};
+		SocketMessage request = new SocketMessage("retriever", "get_metadata_grp", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("group_id", groupId);
+		request.setValue("id", id);
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0601", "failed in getting a metadata group item: coll_id=" + collectionId + "/group_id=" + groupId + "/id=" + id);
+			}
+			else			
+			{
+				wrapError("APIL_0601", "failed in getting a metadata group item: coll_id=" + collectionId+ "/group_id=" + groupId + "/id=" + id);
+			}
+		}
+		else
+		{
+			String date = response.getValue("date");
+			toReturn = new MetadataGroup(id, date);
+			
+			String fieldsString = Tools.padEmptyItem(response.getValue("fields"), ITEM_DELIMITER);
+			String valuesString = Tools.padEmptyItem(response.getValue("values"), ITEM_DELIMITER);
+			
+			String [] fields = StringTool.stringToArray(fieldsString, ITEM_DELIMITER);
+			String [] values = StringTool.stringToArray(valuesString, ITEM_DELIMITER);
+			
+			if (fields.length != values.length)
+			{
+				setError("APIL_0602", "failed in parsing message in metadata group item retrieval: coll_id=" + collectionId + "/group_id=" + groupId + "/id=" + id);
+				return toReturn;
+			}
+			
+			for (int i=0; i<fields.length; i++)
+			{
+				if (" ".equals(fields[i]))
+					continue;
+				else if (" ".equals(values[i]))
+					toReturn.setValue(fields[i], "");
+				else
+					toReturn.setValue(fields[i], values[i]);
+			}
+		}
+		return toReturn;
+	}
+	
+	/**
+	 * Set a metadata group item with given content.
+	 * @param collectionId Collection ID
+	 * @param groupId Group ID
+	 * @param item item content to set. (ID must be specified)
+	 * @return true if modification's successful
+	 */
+	public boolean setMetadataGroup(String collectionId, String groupId, MetadataGroup item)
+	{
+		boolean toReturn = false;
+		
+		if (null == collectionId || null == groupId || null == item || null == item.getId() ||
+				0 == collectionId.length() || 0 == groupId.length() || 0 == item.getId().length())
+		{
+			setError("APIL_0100", "argument's not valid.");
+			return toReturn;
+		}
+		
+		if (DUMMY)
+		{
+			return toReturn;
+		}
+		
+		String [] paramFields = {"collection_id", "group_id", "id", "date", "fields", "values", "item_delimiter"};
+		SocketMessage request = new SocketMessage("roaster", "set_metadata_grp", PriorityType.EMERGENCY, TransferType.BI_WAY, "", paramFields);
+		request.setValue("collection_id", collectionId);
+		request.setValue("group_id", groupId);
+		request.setValue("id", item.getId());
+		request.setValue("date", item.getDate());
+		
+		List<Pair<String>> fieldValues = item.getFieldValues();
+		String [] fields = new String [fieldValues.size()];
+		String [] values = new String [fieldValues.size()];
+		
+		for (int i=0; i<fields.length; i++)
+		{
+			fields[i] = fieldValues.get(i).key();
+			values[i] = fieldValues.get(i).value();
+		}
+		request.setValue("fields", StringTool.arrayToString(fields, ITEM_DELIMITER));
+		request.setValue("values", StringTool.arrayToString(values, ITEM_DELIMITER));
+		
+		request.setValue("item_delimiter", ITEM_DELIMITER);
+		
+		SocketMessage response = handleMessage(request);
+		if (!isSuccessful(response))
+		{
+			if ("".equals(response.getErrorCode()))
+			{
+				setError("APIL_0611", "failed in setting a metadata group item: coll_id=" + collectionId + "/group_id=" + groupId + "/id=" + item.getId());
+			}
+			else			
+			{
+				wrapError("APIL_0611", "failed in setting a metadata group item: coll_id=" + collectionId+ "/group_id=" + groupId + "/id=" + item.getId());
+			}
+		}
+		else
+		{
+			toReturn = true;
+		}
+		
+		return toReturn;
+	}
+	
+	public class SortField
+	{
+		public static final String ID = "ID";
+		public static final String LABEL = "LABEL";
+		public static final String DOC_COUNT = "DOC_COUNT";
+	}
+	
+	public class IntervalType
+	{
+		public static final String DAY = "DAY";
+		public static final String MONTH = "MONTH";
+		public static final String YEAR = "YEAR";
+	}
+}
+
