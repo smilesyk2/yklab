@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.wisenut.common.WNProperties;
 import com.wisenut.model.MainKeywordsInfo;
 import com.wisenut.tea20.api.TeaClient;
@@ -11,6 +14,7 @@ import com.wisenut.tea20.types.Pair;
 import com.wisenut.util.StringUtil;
 
 public class WiseTeaWorker {
+	final static Logger logger = LogManager.getLogger(WiseTeaWorker.class);
 	
 	public Properties prop;
 	public TeaClient teaClient;
@@ -19,22 +23,29 @@ public class WiseTeaWorker {
 	public String collectionId;
 	public String targetField;
 	
-	
 	public WiseTeaWorker() throws Exception{
 		WNProperties wnprop = WNProperties.getInstance("/wisenut.properties");
 		
 		teaIP = wnprop.getProperty("tea.ip");
+		logger.debug("tea ip : " + teaIP);
+		
 		teaPort = Integer.parseInt(wnprop.getProperty("tea.port"));
+		logger.debug("tea port : " + teaPort);
 		
 		teaClient = new TeaClient(teaIP, teaPort);
 		
 		collectionId = wnprop.getProperty("tea.collection.id");
+		logger.debug("collection id : " + collectionId);
+		
 		targetField = wnprop.getProperty("tea.collection.target");
+		logger.debug("target field : " + targetField);
 	}
 	
 	public List<Pair<Integer>> getMainKeywordsPair(String article, int start, int pageNo){
 		article = "CONTENT" + "$!$" + article;
 		List<Pair<Integer>> keywordList = teaClient.extractKeywordsForPlainText(collectionId, article, targetField);
+		
+		logger.debug("keywordList size : " + keywordList.size());
 		
 		return keywordList;
 	}
@@ -52,8 +63,28 @@ public class WiseTeaWorker {
 			mkiList.add(mki);
 		}
 		
+		logger.debug("mkiList size : " + mkiList.size());
+		
 		return StringUtil.objectToString(mkiList);
-	}	
+	}
+	
+	public List<Pair<Double>> getRecommendedContentsPair(String article, int pageno){
+		article = "CONTENT" + "$!$" + article;
+		List<Pair<Double>> documentList = teaClient.getSimilarDoc( collectionId, article, String.valueOf(pageno));
+		
+		logger.debug("documentList size : " + documentList.size());
+		
+		return documentList;
+	}
+	
+	public List<Pair<Double>> getRecommendedContentsPair(String article, ArrayList<String> searchResultList, int pageno){
+		article = "CONTENT" + "$!$" + article;
+		List<Pair<Double>> documentList = teaClient.getSimilarDocSf1( collectionId, article, String.valueOf(pageno), searchResultList);
+		
+		logger.debug("documentList size : " + documentList.size());
+		
+		return documentList;
+	}
 	
 	public static void main(String[] args){
 		WiseTeaWorker teaWorker;

@@ -4,13 +4,19 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Properties;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.wisenut.common.WNProperties;
 import com.wisenut.util.StringUtil;
 
 import QueryAPI530.Search;
 
 public class WiseSearchWorker {
+	final static Logger logger = LogManager.getLogger(WiseSearchWorker.class);
+	
 	public static final String SPACE = " ";
+	public static final int AND_OPERATOR = 1;
 	
 	public Properties prop;
 	public Search search;
@@ -26,6 +32,12 @@ public class WiseSearchWorker {
 	public String collectionId;
 	public String searchFields;
 	public String documentFields;
+	
+	public String dateField;
+	
+	private ArrayList<HashMap<String,String>> resultList; // 연관 기사 리스트
+	private ArrayList<String> docidList; // 연관 기사 DOCID 리스트
+	
 	public boolean debug = true;
 	
 	public WiseSearchWorker() throws Exception{
@@ -45,15 +57,11 @@ public class WiseSearchWorker {
 		collectionId = wnprop.getProperty("search.collection.id");
 		searchFields = wnprop.getProperty("search.collection.searchfields");
 		documentFields = wnprop.getProperty("search.collection.documentfields");
-	}
-	
-	public String search(String query, int listNo){
-		return search(query, listNo, "", ""); 
-	}
-	
-	public String search(String query, int listNo, String startDate, String endDate){
-		ArrayList<HashMap<String,String>> articleList = new ArrayList<HashMap<String,String>>();
 		
+		dateField = wnprop.getProperty("search.collection.datefield");
+	}
+	
+	public void setSearchCondition(String query, int listNo, String startDate, String endDate, boolean docidOnly, boolean docidSearch){
 		search = new Search();
 		
 		int pageNum = 0;
@@ -66,90 +74,152 @@ public class WiseSearchWorker {
 		
 		String[] collectionArr = collectionId.split(",");
 		for(String col : collectionArr){
-			if(debug) System.out.println(" - collection : " + col);			
+			logger.debug(" - collection : " + col);			
 			ret = search.w3AddCollection(col);
 			
 			String[] rankingArr = ranking.split(",");
-			if(debug) System.out.println(" - ranking : "+rankingArr[0]+", "+rankingArr[1]+", " + rankingArr[2]);
+			logger.debug(" - ranking : "+rankingArr[0]+", "+rankingArr[1]+", " + rankingArr[2]);
 			ret = search.w3SetRanking(col, rankingArr[0], rankingArr[1], Integer.parseInt(rankingArr[2]));
 			
 			String[] hlArr = highlight.split(",");
-			if(debug) System.out.println(" - highlight : 1,1");
+			logger.debug(" - highlight : 1,1");
 			ret = search.w3SetHighlight(col, Integer.parseInt(hlArr[0]), Integer.parseInt(hlArr[1]));
 			
-			if(debug) System.out.println(" - sort : " + sort);
+			logger.debug(" - sort : " + sort);
 			ret = search.w3SetSortField(col, sort);
 			
 			String[] qaArr = queryAnalyzer.split(",");
-			if(debug) System.out.println(" - query analyzer : 1,1,1,1");
+			logger.debug(" - query analyzer : 1,1,1,1");
 			ret = search.w3SetQueryAnalyzer(col, Integer.parseInt(qaArr[0]), Integer.parseInt(qaArr[1]), Integer.parseInt(qaArr[2]), Integer.parseInt(qaArr[3]));
 			
-			if(debug) System.out.println(" - search fields : " + searchFields);
+			StringBuffer prefixQuery = new StringBuffer();
+			if(docidSearch){
+				prefixQuery.append("<DOCID:contains:"+query+">");
+			}
+			
+			if(prefixQuery.length()>0){
+				ret = search.w3SetPrefixQuery(collectionId, prefixQuery.toString(), AND_OPERATOR);
+			}
+			
+			logger.debug(" - search fields : " + searchFields);
 			ret = search.w3SetSearchField(col, searchFields);
 			
-			if(debug) System.out.println(" - document fields : " + documentFields);
-			ret = search.w3SetDocumentField(col, documentFields);
+			logger.debug(" - document fields : " + documentFields);
+			if(docidOnly){
+				ret = search.w3SetDocumentField(col, "DOCID");
+			}else{				
+				ret = search.w3SetDocumentField(col, documentFields);
+			}
 			
-			if(debug) System.out.println(" - page info : " + pageNum + ", " + listNo);
+			logger.debug(" - page info : " + pageNum + ", " + listNo);
 			ret = search.w3SetPageInfo(col, pageNum, listNo);
 			
-			if(debug) System.out.println(" - startDate : " + startDate);
+			logger.debug(" - startDate : " + startDate);
 			StringBuffer filterQuery = new StringBuffer();
 			if(!"".equals(startDate)){
-				filterQuery.append("<CRT_DTIME:gte:").append(startDate).append(">");
+				filterQuery.append("<"+dateField+":gte:").append(startDate).append(">");
 			}
 			
 			if(filterQuery.length()>0){
 				filterQuery.append(SPACE);
 			}
 			
-			if(debug) System.out.println(" - endDate : " + endDate);
+			logger.debug(" - endDate : " + endDate);
 			if(!"".equals(endDate)){
-				filterQuery.append("<CRT_DTIME:lte:").append(endDate).append(">");
+				filterQuery.append("<"+dateField+":lte:").append(endDate).append(">");
 			}
 			
-			if(debug) System.out.println(" - filterQuery : " + filterQuery.toString());
+			logger.debug(" - filterQuery : " + filterQuery.toString());
 			if(filterQuery.length()>0){
 				ret = search.w3SetFilterQuery(collectionId, filterQuery.toString());
 			}
 			
 		}
 		
-		if(debug) System.out.println(" - search ip : " + searchIP);
-		if(debug) System.out.println(" - search port : " + searchPort);
-		if(debug) System.out.println(" - search timeout : " + searchTimeout);
+		logger.debug(" - search ip : " + searchIP);
+		logger.debug(" - search port : " + searchPort);
+		logger.debug(" - search timeout : " + searchTimeout);
 		ret = search.w3ConnectServer(searchIP, searchPort, searchTimeout);
 		
 		ret = search.w3ReceiveSearchQueryResult(0);
 		if(ret != 0) {
-            System.out.println(search.w3GetErrorInfo() + " (Error Code : " + search.w3GetError() + " )");
-            return null;
+            logger.error(search.w3GetErrorInfo() + " (Error Code : " + search.w3GetError() + " )");
         }
+	}
+	
+	// 날짜 조건 없는 일반 검색. 결과는 모든 필드.
+	public void search(String query, int listNo){
+		search(query, listNo, "", "", false, false); 
+	}
+	
+	// 날짜 조건 없는 일반 검색.
+	public void search(String query, int listNo, boolean docidOnly){
+		search(query, listNo, "", "", docidOnly, false);
+	}
+	
+	// 날짜 조건 없는 docid 검색. 결과는 모든 필드.
+	public void searchByDOCID(String docid, int listNo){
+		search(docid, listNo, "", "", false, true);
+	}
+	
+	// 날짜 조건 없는 docid 검색.
+	public void searchByDOCID(String docid, int listNo, boolean docidOnly){
+		search(docid, listNo, "", "", docidOnly, true);
+	}
+		
+	public void search(String query, int listNo, String startDate, String endDate, boolean docidOnly, boolean docidSearch){
+		resultList = new ArrayList<HashMap<String,String>>();
+		
+		setSearchCondition(query, listNo, startDate, endDate, docidOnly, docidSearch);
 		
 		int totalResultCount = 0;
+		String[] collectionArr = collectionId.split(",");
 		for(String col : collectionArr){
 			totalResultCount += search.w3GetResultTotalCount(col);
 		}
 		
-		System.out.println("############################################# ");
-		System.out.println("### Query : " + query);
-		System.out.println("### Total Result Count : " + totalResultCount);
-		System.out.println("############################################# ");
+		logger.debug("############################################# ");
+		logger.debug("### Query : " + query);
+		logger.debug("### Total Result Count : " + totalResultCount);
+		logger.debug("############################################# ");
 		
 		int count = search.w3GetResultCount(collectionId);
 		
-		String[] documentFieldsArr = documentFields.split(",");
-		for(int i=0; i<count; i++){
-			HashMap<String,String> articleResultMap = new HashMap<String, String>();
-			
-			for(String dfield : documentFieldsArr){
-				articleResultMap.put(dfield, search.w3GetField(collectionId, dfield, i));
+		if(docidOnly){
+			for(int i=0; i<count; i++){
+				docidList.add(search.w3GetField(collectionId, "DOCID", i));
 			}
-						
-			articleList.add(articleResultMap);
+		}else{
+			String[] documentFieldsArr = documentFields.split(",");
+			for(int i=0; i<count; i++){
+				HashMap<String,String> articleResultMap = new HashMap<String, String>();
+				
+				for(String dfield : documentFieldsArr){
+					articleResultMap.put(dfield, search.w3GetField(collectionId, dfield, i));
+				}
+							
+				resultList.add(articleResultMap);
+			}
 		}
 		
-		return StringUtil.objectToString(articleList);
-	} 
+		search.w3CloseServer();
+	}
+	
+	public String getDOCIDListAsJson(){
+		return StringUtil.objectToString(docidList);
+	}
+	
+	public ArrayList<String> getDOCIDList(){
+		return docidList;
+	}
+	
+	
+	public String getResultListAsJson(){
+		return StringUtil.objectToString(resultList);
+	}
+	
+	public ArrayList<HashMap<String,String>> getResultList(){
+		return resultList;
+	}
 	
 }

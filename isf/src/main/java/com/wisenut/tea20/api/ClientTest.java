@@ -10,8 +10,6 @@ import java.util.List;
 import QueryAPI530.Search;
 
 import com.wisenut.tea20.api.TeaClient;
-import com.wisenut.tea20.tools.Tools;
-import com.wisenut.tea20.types.DocumentInfo;
 import com.wisenut.tea20.types.Pair;
 
 public class ClientTest {
@@ -19,7 +17,7 @@ public class ClientTest {
     static TeaClient teaClient;
     
     public static final String TEA_IP = "211.39.140.51";
-    public static final int TEA_PORT = 11000;
+    public static final int TEA_PORT = 11005;
     
 	public static final String SEARCH_IP = "211.39.140.51";
 	public static final int SEARCH_PORT = 7000;
@@ -121,7 +119,7 @@ public class ClientTest {
     	teaClient = new TeaClient(TEA_IP, TEA_PORT);       
         String query = "CONTENT" + "$!$" + content;
          
-        return teaClient.extractKeywordsForPlainText("sample_terms", query, "TERMS" );
+        return teaClient.extractKeywordsForPlainText("kbs", query, "TERMS" );
     }
     
     public static List<Pair<Double>> getSimilarDoc( String content ) {
@@ -130,7 +128,7 @@ public class ClientTest {
     	// not yet
     	String query = "CONTENT" + "$!$" + content;
          
-        return teaClient.getSimilarDoc( "sample_terms", query, "10");
+        return teaClient.getSimilarDoc( "kbs", query, "10");
     }
     
     public static List<Pair<Double>> getSimilarDoc( String content, ArrayList<String> resultList ) {
@@ -139,7 +137,7 @@ public class ClientTest {
     	// not yet
     	String query = "CONTENT" + "$!$" + content;
          
-        return teaClient.getSimilarDocSf1( "sample_terms", query, "10", resultList);
+        return teaClient.getSimilarDocSf1( "kbs", query, "10", resultList);
     }
     
     
@@ -158,7 +156,7 @@ public class ClientTest {
 		int pageNum = 0;
 		
 		String documentFields = "DOCID";
-		String searchFields = "Subject,Contents";
+		String searchFields = "TITLE,CONTENT_PLAIN";
 		
 		int ret = 0;
 		

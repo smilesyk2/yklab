@@ -1,9 +1,16 @@
 package com.wisenut;
 
+import java.util.ArrayList;
+
+import java.util.HashMap;
 import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.wisenut.model.WNResultData;
 import com.wisenut.tea20.types.Pair;
+import com.wisenut.util.StringUtil;
 import com.wisenut.worker.DaumWorker;
 import com.wisenut.worker.FacebookWorker;
 import com.wisenut.worker.NaverWorker;
@@ -14,17 +21,18 @@ import com.wisenut.worker.YoutubeWorker;
 
 public class OpenAPIProvider {
 	
+	final static Logger logger = LogManager.getLogger(OpenAPIProvider.class);
+	
 	public String getMainKeywordsInfo(String article, int start, int pageno) throws Exception{
 		WiseTeaWorker teaWorker = new WiseTeaWorker();
 		
 		return teaWorker.getMainKeywordsInfo(article, start, pageno);
 	}
 	
-	public String getRecommendedContentsInfo(String article, int start, int pageno) throws Exception{
-		return getRecommendedContentsInfo(article, start, pageno, "", "");
-	}
-	
-	public String getRecommendedContentsInfo(String article, int start, int pageno, String startDate, String endDate) throws Exception{
+	// 1. Model + SF-1 결과 조합
+	public String getRecommendedContentsInfoWithSF1Result(String article, int start, int pageno, String startDate, String endDate) throws Exception{
+		ArrayList<HashMap<String,String>> resultList = new ArrayList<HashMap<String,String>>();
+		
 		WiseTeaWorker teaWorker = new WiseTeaWorker();
 		WiseSearchWorker searchWorker = new WiseSearchWorker();
 		
@@ -44,7 +52,43 @@ public class OpenAPIProvider {
  			query.append(item.key());
  		}
         
-        return searchWorker.search(query.toString(), pageno, startDate, endDate);
+        logger.debug("query : " + query.toString());
+        
+        searchWorker.search(query.toString(), pageno, startDate, endDate, true, false);
+        
+        // 검색한 결과와 tea의 similarDoc 결과를 조합
+        List<Pair<Double>> docidList = teaWorker.getRecommendedContentsPair(article, searchWorker.getDOCIDList(), pageno);
+        
+		for(Pair<Double> p : docidList){
+			searchWorker.searchByDOCID(p.key(), pageno);
+			
+			// DOCID Search에 대한 결과는 한 개이므로 첫번째 결과만 가져와서 add.
+			resultList.add(searchWorker.getResultList().get(0));
+		}
+		
+		return StringUtil.objectToString(resultList);
+	}
+	
+	// 2. Model
+	public String getRecommendedContentsInfo(String article, int start, int pageno, String startDate, String endDate) throws Exception{
+		ArrayList<HashMap<String,String>> resultList = new ArrayList<HashMap<String,String>>();
+		
+		WiseTeaWorker teaWorker = new WiseTeaWorker();
+		WiseSearchWorker searchWorker = new WiseSearchWorker();
+        
+        // similarDoc만 사용
+        List<Pair<Double>> docidList = teaWorker.getRecommendedContentsPair(article, pageno);
+        
+        logger.debug("docidList size : " + docidList.size());
+        
+		for(Pair<Double> p : docidList){
+			searchWorker.searchByDOCID(p.key(), pageno);
+			
+			// DOCID Search에 대한 결과는 한 개이므로 첫번째 결과만 가져와서 add.
+			resultList.add(searchWorker.getResultList().get(0));
+		}
+		
+		return StringUtil.objectToString(resultList);
 	}
 	
 	
@@ -81,7 +125,7 @@ public class OpenAPIProvider {
 		
 		String strResultData;
 		try {
-			strResultData = provider.getRecommendedContentsInfo(article, 0, 10, "20130101", "20161231");
+			strResultData = provider.getRecommendedContentsInfo(article, 0, 10, "", "");
 			System.out.println(strResultData);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
