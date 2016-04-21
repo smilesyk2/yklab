@@ -2,6 +2,7 @@ package com.wisenut.common;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Properties;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,6 +21,7 @@ import com.wisenut.model.WNAuth;
 
 public class WNProperties {
 	private static WNProperties instance = null;
+	private static Properties prop = null;
 	private static int provider;
 	private Document doc;
 	private WNAuth auth;
@@ -62,6 +64,15 @@ public class WNProperties {
         }
 	}
 	
+	public WNProperties(String classPath){
+		prop = new Properties();
+		try(final InputStream is = getClass().getResourceAsStream(classPath)){
+			prop.load(is);
+		}catch(Exception e){
+			e.printStackTrace();
+		}
+	}
+	
 	public static synchronized WNProperties getInstance(int provider_){
 		provider = provider_;
 		
@@ -70,6 +81,22 @@ public class WNProperties {
         }
         
         return instance;
+	}
+	
+	public static synchronized WNProperties getInstance(String classPath){
+		if( instance == null){
+			instance = new WNProperties(classPath);
+		}
+		
+		return instance;
+	}
+	
+	public synchronized String getProperty(String key) throws Exception{
+		if(prop.getProperty(key) == null ){
+			throw new Exception(key + " does not exist.");
+		}else{
+			return prop.getProperty(key);
+		}
 	}
 	
 	public synchronized WNAuth getPropValues() {
