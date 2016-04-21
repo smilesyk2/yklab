@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+	<!-- Appender, Layout 설정 -->
+	<Appenders>
+		<Console name="console" target="STDOUT">
+			<PatternLayout pattern="%5p [%c.%M] %m%n"/>
+		</Console>
+		<File name="file" fileName="logs/isf.log" append="false">
+			<PatternLayout pattern="%d %5p [%c.%M] %m%n"/>
+		</File>
+	</Appenders>
+	
+	<!-- Logger 설정 -->
+	<Loggers>
+		<Logger name="OpenAPIProvider" level="DEBUG" additivity="false">
+			<AppenderRef ref="console"/>
+			<AppenderRef ref="file"/>
+		</Logger>
+		<Logger name="WiseTeaWorker" level="DEBUG" additivity="false">
+			<AppenderRef ref="console"/>
+			<AppenderRef ref="file"/>
+		</Logger>
+		<Logger name="WiseSearchWorker" level="INFO" additivity="false">
+			<AppenderRef ref="console"/>
+			<AppenderRef ref="file"/>
+		</Logger>
+		<Root level="DEBUG">
+			<AppenderRef ref="console"/>
+			<AppenderRef ref="file"/>
+		</Root>
+	</Loggers>
+</Configuration>
