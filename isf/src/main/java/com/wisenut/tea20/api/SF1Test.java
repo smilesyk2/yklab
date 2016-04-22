@@ -28,7 +28,7 @@ public class SF1Test {
 		int pageNum = 0;
 		
 		String documentFields = "DOCID";
-		String searchFields = "Subject,Contents";
+		String searchFields = "TITLE,CONTENT_PLAIN,KEYWORD";
 		
 		int ret = 0;
 		

@@ -823,7 +823,7 @@ public class TeaClient {
         SocketMessage request = new SocketMessage("recommender", "get_similar_doc", SocketMessage.PriorityType.EMERGENCY, SocketMessage.TransferType.BI_WAY, "",
                 paramFields);
         request.setValue("collection_id", collectionId);
-        request.setValue("target_field", "TERMS");
+        request.setValue("target_field", "TERMS_KMA");
         request.setValue("content", content);
         request.setValue("field_delimiter", FIELD_DELIMITER);
         request.setValue("item_delimiter", ITEM_DELIMITER);
@@ -870,7 +870,7 @@ public class TeaClient {
         SocketMessage request = new SocketMessage("recommender", "get_similar_doc_sf1", SocketMessage.PriorityType.EMERGENCY, SocketMessage.TransferType.BI_WAY, "",
                 paramFields);
         request.setValue("collection_id", collectionId);
-        request.setValue("target_field", "TERMS");
+        request.setValue("target_field", "TERMS_KMA");
         request.setValue("content", content);
         request.setValue("field_delimiter", FIELD_DELIMITER);
         request.setValue("value_delimiter", VALUE_DELIMITER);

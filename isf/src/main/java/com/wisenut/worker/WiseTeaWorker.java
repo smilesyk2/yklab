@@ -22,6 +22,7 @@ public class WiseTeaWorker {
 	public int teaPort;
 	public String collectionId;
 	public String targetField;
+	public String searchField;
 	
 	public WiseTeaWorker() throws Exception{
 		WNProperties wnprop = WNProperties.getInstance("/wisenut.properties");
@@ -39,10 +40,13 @@ public class WiseTeaWorker {
 		
 		targetField = wnprop.getProperty("tea.collection.target");
 		logger.debug("target field : " + targetField);
+		
+		searchField = wnprop.getProperty("tea.collection.searchfield");
+		logger.debug("search field : " + searchField);
 	}
 	
 	public List<Pair<Integer>> getMainKeywordsPair(String article, int start, int pageNo){
-		article = "CONTENT" + "$!$" + article;
+		article = searchField + "$!$" + article;
 		List<Pair<Integer>> keywordList = teaClient.extractKeywordsForPlainText(collectionId, article, targetField);
 		
 		logger.debug("keywordList size : " + keywordList.size());
@@ -51,7 +55,7 @@ public class WiseTeaWorker {
 	}
 	
 	public String getMainKeywordsInfo(String article, int start, int pageNo){
-		article = "CONTENT" + "$!$" + article;
+		article = searchField + "$!$" + article;
 		List<Pair<Integer>> keywordList = teaClient.extractKeywordsForPlainText(collectionId, article, targetField);
 		ArrayList<MainKeywordsInfo> mkiList = new ArrayList<MainKeywordsInfo>(); 
 		
@@ -69,7 +73,7 @@ public class WiseTeaWorker {
 	}
 	
 	public List<Pair<Double>> getRecommendedContentsPair(String article, int pageno){
-		article = "CONTENT" + "$!$" + article;
+		article = searchField + "$!$" + article;
 		List<Pair<Double>> documentList = teaClient.getSimilarDoc( collectionId, article, String.valueOf(pageno));
 		
 		logger.debug("documentList size : " + documentList.size());
@@ -78,7 +82,7 @@ public class WiseTeaWorker {
 	}
 	
 	public List<Pair<Double>> getRecommendedContentsPair(String article, ArrayList<String> searchResultList, int pageno){
-		article = "CONTENT" + "$!$" + article;
+		article = searchField + "$!$" + article;
 		List<Pair<Double>> documentList = teaClient.getSimilarDocSf1( collectionId, article, String.valueOf(pageno), searchResultList);
 		
 		logger.debug("documentList size : " + documentList.size());

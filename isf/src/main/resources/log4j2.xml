@@ -12,7 +12,7 @@
 	
 	<!-- Logger 설정 -->
 	<Loggers>
-		<Logger name="OpenAPIProvider" level="DEBUG" additivity="false">
+		<Logger name="OpenAPIProvider" level="INFO" additivity="false">
 			<AppenderRef ref="console"/>
 			<AppenderRef ref="file"/>
 		</Logger>
@@ -20,11 +20,11 @@
 			<AppenderRef ref="console"/>
 			<AppenderRef ref="file"/>
 		</Logger>
-		<Logger name="WiseSearchWorker" level="INFO" additivity="false">
+		<Logger name="WiseSearchWorker" level="ERROR" additivity="false">
 			<AppenderRef ref="console"/>
 			<AppenderRef ref="file"/>
 		</Logger>
-		<Root level="DEBUG">
+		<Root level="INFO">
 			<AppenderRef ref="console"/>
 			<AppenderRef ref="file"/>
 		</Root>

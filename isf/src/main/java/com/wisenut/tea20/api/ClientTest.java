@@ -117,7 +117,7 @@ public class ClientTest {
     public static List<Pair<Integer>> extractKeywords( String content ) {
     	 
     	teaClient = new TeaClient(TEA_IP, TEA_PORT);       
-        String query = "CONTENT" + "$!$" + content;
+        String query = "CONTENT_PLAIN" + "$!$" + content;
          
         return teaClient.extractKeywordsForPlainText("kbs", query, "TERMS" );
     }
@@ -126,7 +126,7 @@ public class ClientTest {
    	 
     	teaClient = new TeaClient(TEA_IP, TEA_PORT);
     	// not yet
-    	String query = "CONTENT" + "$!$" + content;
+    	String query = "CONTENT_PLAIN" + "$!$" + content;
          
         return teaClient.getSimilarDoc( "kbs", query, "10");
     }
@@ -135,7 +135,7 @@ public class ClientTest {
       	 
     	teaClient = new TeaClient(TEA_IP, TEA_PORT);
     	// not yet
-    	String query = "CONTENT" + "$!$" + content;
+    	String query = "CONTENT_PLAIN" + "$!$" + content;
          
         return teaClient.getSimilarDocSf1( "kbs", query, "10", resultList);
     }

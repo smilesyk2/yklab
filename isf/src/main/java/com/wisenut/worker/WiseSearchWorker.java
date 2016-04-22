@@ -61,7 +61,7 @@ public class WiseSearchWorker {
 		dateField = wnprop.getProperty("search.collection.datefield");
 	}
 	
-	public void setSearchCondition(String query, int listNo, String startDate, String endDate, boolean docidOnly, boolean docidSearch){
+	public void setSearchCondition(String query, int listNo, String startDate, String endDate, boolean docidSearch){
 		search = new Search();
 		
 		int pageNum = 0;
@@ -70,7 +70,12 @@ public class WiseSearchWorker {
 		
 		ret = search.w3SetCodePage("UTF-8");
 		ret = search.w3SetQueryLog(1);
-		ret = search.w3SetCommonQuery(query, 0);
+		
+		if(docidSearch){
+			ret = search.w3SetCommonQuery("", 0);
+		}else{
+			ret = search.w3SetCommonQuery(query, 0);
+		}
 		
 		String[] collectionArr = collectionId.split(",");
 		for(String col : collectionArr){
@@ -97,6 +102,12 @@ public class WiseSearchWorker {
 				prefixQuery.append("<DOCID:contains:"+query+">");
 			}
 			
+			if(docidSearch){				
+				logger.debug(" - date range : ");
+				ret = search.w3SetDateRange(collectionId, "1970/01/01", "2030/12/31");
+			}
+			
+			logger.debug(" - prefixQuery : " + prefixQuery.toString());
 			if(prefixQuery.length()>0){
 				ret = search.w3SetPrefixQuery(collectionId, prefixQuery.toString(), AND_OPERATOR);
 			}
@@ -105,11 +116,7 @@ public class WiseSearchWorker {
 			ret = search.w3SetSearchField(col, searchFields);
 			
 			logger.debug(" - document fields : " + documentFields);
-			if(docidOnly){
-				ret = search.w3SetDocumentField(col, "DOCID");
-			}else{				
-				ret = search.w3SetDocumentField(col, documentFields);
-			}
+			ret = search.w3SetDocumentField(col, documentFields);
 			
 			logger.debug(" - page info : " + pageNum + ", " + listNo);
 			ret = search.w3SetPageInfo(col, pageNum, listNo);
@@ -146,31 +153,13 @@ public class WiseSearchWorker {
             logger.error(search.w3GetErrorInfo() + " (Error Code : " + search.w3GetError() + " )");
         }
 	}
-	
-	// 날짜 조건 없는 일반 검색. 결과는 모든 필드.
-	public void search(String query, int listNo){
-		search(query, listNo, "", "", false, false); 
-	}
-	
-	// 날짜 조건 없는 일반 검색.
-	public void search(String query, int listNo, boolean docidOnly){
-		search(query, listNo, "", "", docidOnly, false);
-	}
-	
-	// 날짜 조건 없는 docid 검색. 결과는 모든 필드.
-	public void searchByDOCID(String docid, int listNo){
-		search(docid, listNo, "", "", false, true);
-	}
-	
-	// 날짜 조건 없는 docid 검색.
-	public void searchByDOCID(String docid, int listNo, boolean docidOnly){
-		search(docid, listNo, "", "", docidOnly, true);
-	}
 		
-	public void search(String query, int listNo, String startDate, String endDate, boolean docidOnly, boolean docidSearch){
+	public void search(String query, int listNo, String startDate, String endDate){
 		resultList = new ArrayList<HashMap<String,String>>();
+		docidList = new ArrayList<String>();
 		
-		setSearchCondition(query, listNo, startDate, endDate, docidOnly, docidSearch);
+		// property에 지정한 모든 필드 검색
+		setSearchCondition(query, listNo, startDate, endDate, false);
 		
 		int totalResultCount = 0;
 		String[] collectionArr = collectionId.split(",");
@@ -185,21 +174,57 @@ public class WiseSearchWorker {
 		
 		int count = search.w3GetResultCount(collectionId);
 		
-		if(docidOnly){
-			for(int i=0; i<count; i++){
-				docidList.add(search.w3GetField(collectionId, "DOCID", i));
-			}
-		}else{
-			String[] documentFieldsArr = documentFields.split(",");
-			for(int i=0; i<count; i++){
-				HashMap<String,String> articleResultMap = new HashMap<String, String>();
-				
-				for(String dfield : documentFieldsArr){
-					articleResultMap.put(dfield, search.w3GetField(collectionId, dfield, i));
+		String[] documentFieldsArr = documentFields.split(",");
+		for(int i=0; i<count; i++){
+			HashMap<String,String> articleResultMap = new HashMap<String, String>();
+			
+			for(String dfield : documentFieldsArr){
+				// DOCID 결과값은 별도로 따로 저장.
+				if(dfield.equals("DOCID")){
+					docidList.add(search.w3GetField(collectionId, dfield, i));
 				}
-							
-				resultList.add(articleResultMap);
+				articleResultMap.put(dfield, search.w3GetField(collectionId, dfield, i));
 			}
+						
+			resultList.add(articleResultMap);
+		}
+		
+		search.w3CloseServer();
+	}
+	
+	public void docidSearch(String query, int listNo, String startDate, String endDate){
+		resultList = new ArrayList<HashMap<String,String>>();
+		docidList = new ArrayList<String>();
+		
+		// docid만 검색.
+		setSearchCondition(query, listNo, startDate, endDate, true);
+		
+		int totalResultCount = 0;
+		String[] collectionArr = collectionId.split(",");
+		for(String col : collectionArr){
+			totalResultCount += search.w3GetResultTotalCount(col);
+		}
+		
+		logger.debug("############################################# ");
+		logger.debug("### Query : " + query);
+		logger.debug("### Total Result Count : " + totalResultCount);
+		logger.debug("############################################# ");
+		
+		int count = search.w3GetResultCount(collectionId);
+
+		String[] documentFieldsArr = documentFields.split(",");
+		for(int i=0; i<count; i++){
+			HashMap<String,String> articleResultMap = new HashMap<String, String>();
+			
+			for(String dfield : documentFieldsArr){
+				// DOCID 결과값은 별도로 따로 저장.
+				if(dfield.equals("DOCID")){
+					docidList.add(search.w3GetField(collectionId, dfield, i));
+				}
+				articleResultMap.put(dfield, search.w3GetField(collectionId, dfield, i));
+			}
+						
+			resultList.add(articleResultMap);
 		}
 		
 		search.w3CloseServer();
@@ -221,5 +246,4 @@ public class WiseSearchWorker {
 	public ArrayList<HashMap<String,String>> getResultList(){
 		return resultList;
 	}
-	
 }
