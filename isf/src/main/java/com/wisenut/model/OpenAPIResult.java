@@ -1,6 +1,6 @@
 package com.wisenut.model;
 
-public class WNResultItem {
+public class OpenAPIResult {
 	String title;
 	String contents;
 	String createDate;

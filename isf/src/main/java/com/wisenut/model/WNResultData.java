@@ -1,6 +1,7 @@
 package com.wisenut.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class WNResultData {
 	private static final String JSON_COMMA = ",";
@@ -12,13 +13,22 @@ public class WNResultData {
 	private int totalCount;
 	private int currentCount;
 	private int startPos;
-	private ArrayList<WNResultItem> itemList;
+	private ArrayList itemList;
 	
-	public WNResultData(){
-		itemList = new ArrayList<WNResultItem>();
+	public WNResultData(String type){
+		if("op".equals(type)){			
+			itemList = new ArrayList<OpenAPIResult>();
+		}else if("kw".equals(type)){
+			itemList = new ArrayList<MainKeywordsInfo>();
+		}else if("ne".equals(type)){
+			itemList = new ArrayList<NameEntity>();
+		}else if("rc".equals(type)){
+			itemList = new ArrayList<HashMap<String,String>>();
+		}
+			
 	}
 	
-	public String toString(){
+	/*public String toString(){
 		StringBuffer sbResult = new StringBuffer();
 		sbResult.append("{");
 		sbResult.append(JSON_QUOT + "Result" + JSON_QUOT + JSON_COLON);
@@ -58,7 +68,7 @@ public class WNResultData {
 		sbResult.append("}");
 		
 		return sbResult.toString();
-	}
+	}*/
 	
 	public String getProvider() {
 		return provider;
@@ -90,21 +100,13 @@ public class WNResultData {
 	public void setStartPos(int startPos) {
 		this.startPos = startPos;
 	}
-	public ArrayList<WNResultItem> getItemList() {
+	public ArrayList<?> getItemList() {
 		return itemList;
 	}
-	public void setItemList(ArrayList<WNResultItem> itemList) {
+	public void setItemList(ArrayList<?> itemList) {
 		this.itemList = itemList;
 	}
-	public void addItem(String title, String contents, String createDate, String author, String link, String thumbnailUrl){
-		WNResultItem item = new WNResultItem();
-		item.setTitle(title);
-		item.setContents(contents);
-		item.setCreateDate(createDate);
-		item.setAuthor(author);
-		item.setLink(link);
-		item.setThumbnailUrl(thumbnailUrl);
-		
+	public <E extends Object> void addItem(E item){
 		itemList.add(item);
 	}
 }

@@ -16,6 +16,7 @@ import org.w3c.dom.NodeList;
 
 import com.wisenut.common.WNConstants;
 import com.wisenut.common.WNProperties;
+import com.wisenut.model.OpenAPIResult;
 import com.wisenut.model.WNResultData;
 import com.wisenut.util.StringUtil;
 
@@ -60,12 +61,15 @@ public class NaverWorker {
 				
 				if (item.getNodeType() == Node.ELEMENT_NODE) {
 					Element eElement = (Element) item;
-					data.addItem(eElement.getElementsByTagName("title").item(0).getTextContent(),
-							StringUtil.removeSpecialCharacter(eElement.getElementsByTagName("description").item(0).getTextContent()),
-							eElement.getElementsByTagName("pubDate").item(0).getTextContent(),
-							"",
-							eElement.getElementsByTagName("link").item(0).getTextContent(),
-							"");
+					OpenAPIResult result = new OpenAPIResult();
+					
+					result.setTitle(eElement.getElementsByTagName("title").item(0).getTextContent());
+					result.setContents(StringUtil.removeSpecialCharacter(eElement.getElementsByTagName("description").item(0).getTextContent()));
+					result.setCreateDate(eElement.getElementsByTagName("pubDate").item(0).getTextContent());
+					result.setLink(eElement.getElementsByTagName("link").item(0).getTextContent());
+					result.setAuthor("");
+					result.setThumbnailUrl("");
+					data.addItem(result);
 				}
 			}
 		}catch(Exception e){

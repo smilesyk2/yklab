@@ -25,6 +25,7 @@ import com.google.api.services.youtube.model.ResourceId;
 import com.google.api.services.youtube.model.SearchListResponse;
 import com.google.api.services.youtube.model.SearchResult;
 import com.google.api.services.youtube.model.Thumbnail;
+import com.wisenut.model.OpenAPIResult;
 import com.wisenut.model.WNResultData;
 import com.wisenut.util.StringUtil;
 
@@ -109,6 +110,7 @@ public class YoutubeWorker {
 
 	  int numberOfResult = 0;
 	  while (iteratorSearchResults.hasNext()) {
+		  OpenAPIResult result = new OpenAPIResult();
 		  SearchResult singleVideo = iteratorSearchResults.next();
 		  ResourceId rId = singleVideo.getId();
 		  
@@ -118,12 +120,15 @@ public class YoutubeWorker {
 			  
 			  Thumbnail thumbnail = (Thumbnail)singleVideo.getSnippet().getThumbnails().get("default");
 			  
-			  data.addItem(StringUtil.removeSpecialCharacter(singleVideo.getSnippet().getTitle()),
-					  StringUtil.removeSpecialCharacter(singleVideo.getSnippet().getDescription()),
-					  dtf.print(DateTime.parse(singleVideo.getSnippet().getPublishedAt().toString())),
-					  singleVideo.getSnippet().getChannelTitle(),
-					  "https://youtu.be/" + rId.getVideoId(),
-					  thumbnail.getUrl());
+			
+			result.setTitle(StringUtil.removeSpecialCharacter(singleVideo.getSnippet().getTitle()));
+			result.setContents(StringUtil.removeSpecialCharacter(singleVideo.getSnippet().getDescription()));
+			result.setCreateDate(dtf.print(DateTime.parse(singleVideo.getSnippet().getPublishedAt().toString())));
+			result.setLink("https://youtu.be/" + rId.getVideoId());
+			result.setAuthor(singleVideo.getSnippet().getChannelTitle());
+			result.setThumbnailUrl(thumbnail.getUrl());
+			
+			data.addItem(result);
 		  }
 	  }
 	  
@@ -132,7 +137,7 @@ public class YoutubeWorker {
   
   public static void main(String[] args){
 	  YoutubeWorker yWorker = new YoutubeWorker();
-	  WNResultData data = new WNResultData();
+	  WNResultData data = new WNResultData("op");
 	  yWorker.search("conan", 1, 10, "accu", data);
   }
 }

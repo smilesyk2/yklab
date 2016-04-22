@@ -4,8 +4,56 @@
   <artifactId>isf</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>Integrated Search Framework</name>
-  <description>		</description>
-  <dependencies>
+  <description></description>
+  <build>
+  	<plugins>
+  		<plugin>
+  			<groupId>org.apache.maven.plugins</groupId>
+  			<artifactId>maven-jar-plugin</artifactId>
+  			<version>2.3.2</version>
+  			<configuration>
+  				<archive>
+  					<manifest>
+  						<!-- executable jar 에서 main 으로 실행 될 클래스 -->
+  						<mainClass>com.wisenut.OpenAPIProvider</mainClass>
+  						<!-- jar 파일 안의 META-INF/MANIFEST.MF 에 classpath 정보가 추가됨 -->
+  						<addClasspath>true</addClasspath>
+  						<!-- library path (root/lib) -->
+  						<classpathPrefix>lib/</classpathPrefix>
+  					</manifest>
+  				</archive>
+  			</configuration>
+  		</plugin>
+  		
+  		<!-- package 실행 할 때 dependancy 들을 lib 폴더로 이동 시켜 줌 -->
+  		<plugin>
+  			<groupId>org.apache.maven.plugins</groupId>
+  			<artifactId>maven-dependency-plugin</artifactId>
+  			<version>2.3</version>
+  			<executions>
+  				<execution>
+  					<id>copy-dependencies</id>
+  					<phase>package</phase>
+  					<goals>
+  						<goal>copy-dependencies</goal>
+  					</goals>
+  				</execution>
+  			</executions>
+  			<configuration>
+  				<!-- eclipse 에서는  target 밑의  lib 에 생성 됨 -->
+  				<outputDirectory>target/lib</outputDirectory>
+  				<overWriteIfNewer>true</overWriteIfNewer>
+  			</configuration>
+  		</plugin>
+	</plugins>   
+	<resources>
+		<resource>
+			<!-- property file 들과 같은 resource 파일 (classpath 잡힌)들의 경로 (ex. log4j.xml 같은) -->
+			<directory>src/main/resources</directory>
+		</resource>
+	</resources>    
+</build>
+<dependencies>
   	<dependency>
   		<groupId>org.facebook4j</groupId>
   		<artifactId>facebook4j-core</artifactId>
@@ -50,6 +98,11 @@
   		<groupId>org.apache.logging.log4j</groupId>
   		<artifactId>log4j-core</artifactId>
   		<version>2.5</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>org.apache.commons</groupId>
+  		<artifactId>commons-lang3</artifactId>
+  		<version>3.4</version>
   	</dependency>
   </dependencies>
 </project>

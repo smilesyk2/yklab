@@ -104,12 +104,12 @@ public class WiseSearchWorker {
 			
 			if(docidSearch){				
 				logger.debug(" - date range : ");
-				ret = search.w3SetDateRange(collectionId, "1970/01/01", "2030/12/31");
+				ret = search.w3SetDateRange(col, "1970/01/01", "2030/12/31");
 			}
 			
 			logger.debug(" - prefixQuery : " + prefixQuery.toString());
 			if(prefixQuery.length()>0){
-				ret = search.w3SetPrefixQuery(collectionId, prefixQuery.toString(), AND_OPERATOR);
+				ret = search.w3SetPrefixQuery(col, prefixQuery.toString(), AND_OPERATOR);
 			}
 			
 			logger.debug(" - search fields : " + searchFields);
@@ -138,7 +138,7 @@ public class WiseSearchWorker {
 			
 			logger.debug(" - filterQuery : " + filterQuery.toString());
 			if(filterQuery.length()>0){
-				ret = search.w3SetFilterQuery(collectionId, filterQuery.toString());
+				ret = search.w3SetFilterQuery(col, filterQuery.toString());
 			}
 			
 		}
