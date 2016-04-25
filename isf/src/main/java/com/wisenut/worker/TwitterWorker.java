@@ -13,6 +13,7 @@ import twitter4j.Twitter;
 import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 
+import com.wisenut.model.OpenAPIResult;
 import com.wisenut.model.WNResultData;
 import com.wisenut.util.StringUtil;
 
@@ -48,12 +49,15 @@ public class TwitterWorker {
 			do{
 				if(pos+1 == startPos ){
 					for (Status status : result.getTweets()) {
-						data.addItem("",
-								StringUtil.removeSpecialCharacter(status.getText()),
-								sdf.format(status.getCreatedAt()),
-								status.getUser().getScreenName(),
-								"https://twitter.com/"+status.getUser().getScreenName()+"/status/"+status.getId(),
-								"");
+						OpenAPIResult thisResult = new OpenAPIResult();
+						thisResult.setTitle("");
+						thisResult.setContents(StringUtil.removeSpecialCharacter(status.getText()));
+						thisResult.setCreateDate(sdf.format(status.getCreatedAt()));
+						thisResult.setAuthor(status.getUser().getScreenName());
+						thisResult.setLink("https://twitter.com/"+status.getUser().getScreenName()+"/status/"+status.getId());
+						thisResult.setThumbnailUrl("");
+						
+						data.addItem(thisResult);
 					}
 					break;
 				}

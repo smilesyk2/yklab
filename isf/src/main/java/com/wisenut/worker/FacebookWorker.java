@@ -4,6 +4,7 @@ package com.wisenut.worker;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import com.wisenut.model.OpenAPIResult;
 import com.wisenut.model.WNResultData;
 import com.wisenut.util.StringUtil;
 
@@ -50,8 +51,17 @@ public class FacebookWorker {
 			data.setTotalCount(results.size());
 			
 			for(Object result : results){
+				OpenAPIResult thisResultObj = new OpenAPIResult();
 				String createDate = getCreateDate(result)!=null ? sdf.format(getCreateDate(result)):"";
-				data.addItem(getTitle(result), StringUtil.removeSpecialCharacter(getContents(result)), createDate, getAuthor(result), getLink(result), "");
+				 
+				thisResultObj.setTitle(getTitle(result));
+				thisResultObj.setContents(StringUtil.removeSpecialCharacter(getContents(result)));
+				thisResultObj.setCreateDate(createDate);
+				thisResultObj.setAuthor(getAuthor(result));
+				thisResultObj.setLink(getLink(result));
+				thisResultObj.setThumbnailUrl("");
+								
+				data.addItem(thisResultObj.toString());
 			}
 		} catch (FacebookException e) {
 			// TODO Auto-generated catch block
