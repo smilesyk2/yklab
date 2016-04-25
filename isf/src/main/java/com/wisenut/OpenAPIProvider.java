@@ -197,24 +197,24 @@ public class OpenAPIProvider {
 			System.out.println(strResultData);
 			
 			System.out.println("================================================================================================================== 내부 API");
-			//String article = "겨울채비 하세요... 이번 주 맑고 포근 윤우현 기자 whyoon@jbnews.com 11월4째주 충북지방은 대체로 고기압의 영향을 받아 맑겠으며, 기온도 평년보다 조금 높아 포근한 한 주가 될 것으로 전망된다.청주기상대는 20일 충북지방은 고기압의 영향을 받아 맑은 날씨를 보이겠으며, 아침최저 청주2도, 충주 영하1도 등 영하2~영상2도의 분포를 보이겠고, 낮 최고기온은 청주 16도, 충주 14도 등 14~16도로 포근할 것이라고 예보했다. 한편 11월 셋째 휴일인 19일 충북지역은 구름이 낀 흐린 날씨를 보인 가운데 유명산 등에는 다소 한산한 모습을 보였다. 가을 단풍이 모두 떨어진 월악산국립공원 입장객은 2천명으로 지난 주의 절반에 그쳤고 속리산에는 4천명의 등산객이 산행을 즐겼으나 평소보다 적은 수준이었다. 대통령 옛 별장인 청원 청남대에도 휴일 평균 관람객의 50%를 밑도는 2천명만 입장해 초겨울 대청호의 풍광을 감상했다. 청주 상당산성, 청원 문의문화재 단지 등 도내 주요 유원지에서는 두툼한 옷을 입은 가족단위 행락객이 등산, 산책, 외식 등을 하며 휴일의 여유를 즐겼다. 청주 도심 극장가는 대입 수능을 마친 고3학생 등으로 북적거렸고 도시와 농촌가정에서는 김장김치를 담그는 손길이 분주했다."; 
-			String article = "청주 도심 극장가는 대입 수능을 마친 고3학생 등으로 북적거렸고 도시와 농촌가정에서는 김장김치를 담그는 손길이 분주했다.";
+			String article = "오는 16일, 세월호 참사 1주기를 맞습니다.      세월호 참사 진상규명은 제자리 걸음이고 유가족들의 속은 하루하루 타들어 가고 있습니다.      광주에서도 세월호 희생자 304명을 기리는 추모 행사가 시작됐습니다.      김기중 기자가 취재했습니다.      세월호 침몰 때 아들을 잃은 아버지가 무거운 침묵 속에 걷고 절하기를 반복합니다.      고 이승현 군을 보낸 지 그새 1년, 아무것도 달라진 게 없어 답답한 마음에 진도에서 서울까지 45일째 걷고 있습니다.   이호진 / 고 이승현 군 아버지 뭐가 하나 달라진 게 없어요. (세월호 1주기가) 아무런 의미가 없어요. 고통이 더 심해지면 심해졌지...   인양하라! 인양하라!    본격적인 추모 행사도 시작됐습니다.    세월호 참사 광주시민대책위는 오늘 기자회견을 열고 진상규명을 막고 있는 세월호 특별법 시행령을 폐기하라고 촉구했습니다.   나간채 / 세월호 참사 광주시민대책위 조사 대상인 관련 부서 공무원이 조사의 주체가 되는 시행령을 만들어 특별법을 무력화시키려고 합니다.      광주 금남로에는 다시 세월호 참사 1주기 합동분향소가 설치됐습니다.      더 이상 주저하지 말고 세월호 인양 계획을 세워야 한다는 1인 시위도 오는 17일까지 이어집니다.   정영일 / 광주시민단체협의회 상임대표 비용의 문제가 아니라 (세월호 인양은) 대한민국의 안전을 세운다는 측면에서 봐야 된다고 생각합니다.      오는 16일까지 광주 금남로와 진도 팽목항 일대에서 세월호 참사 1주기 추모 행사가 잇따라 열려 세월호 진상 규명을 촉구하는 여론은 더욱 거세질 전망입니다. KBS 뉴스 김기중입니다.끝. 담양군 대전면 오늘 {1,004713} 이호진 / 고 이승현 군 아버지 나간채 / 세월호 참사 광주시민대책위 세월호 참사 1주기 추모기간 선포 기자회견 오늘, 광주시 금남로 {2,000309} 나간채 / 세월호 참사 광주시민대책위 조사 대상인 관련 부서 공무원이 조사의 주체가 되는 시행령을 만들어 특별법을 무력화시키려고 합니다. {1,005433}정영일 / 광주시민단체협의회 상임대표 비용의 문제가 아니라 (세월호 인양은) 대한민국의 안전을 세운다는 측면에서 봐야 된다고 생각합니다. 촬영기자 : 이승준 영상편집 : 이두형 "; 
+			//String article = "청주 도심 극장가는 대입 수능을 마친 고3학생 등으로 북적거렸고 도시와 농촌가정에서는 김장김치를 담그는 손길이 분주했다.";
 			System.out.println("###### Input Article : "+ article);
 			System.out.println("###### ( article length is "+ article.length() + ".)");
 			
 			strResultData = provider.getMainKeywordsInfo(article, 0, 10);
 			System.out.println("#1. 키워드(해쉬태그) 추출 : " + strResultData);
 			
-			strResultData = provider.getRecommendedContentsInfo(article, 0, 10);
-			System.out.println("#2-1. 연관기사 추천. 전체 컬렉션. 날짜 조건 X : " + strResultData);
+			//strResultData = provider.getRecommendedContentsInfo(article, 0, 10);
+			//System.out.println("#2-1. 연관기사 추천. 전체 컬렉션. 날짜 조건 X : " + strResultData);
 			
 			strResultData = provider.getRecommendedContentsInfo(article, "article", 0, 10);
 			System.out.println("#2-2. 연관기사 추천. 특정 컬렉션. 날짜 조건 X : " + strResultData);
 			
-			strResultData = provider.getRecommendedContentsInfo(article, 0, 10, "20150101", "20151231");
-			System.out.println("#2-3. 연관기사 추천. 전체 컬렉션. 날짜 조건 O : " + strResultData);
+			//strResultData = provider.getRecommendedContentsInfo(article, 0, 10, "20150101", "20151231");
+			//System.out.println("#2-3. 연관기사 추천. 전체 컬렉션. 날짜 조건 O : " + strResultData);
 			
-			strResultData = provider.getRecommendedContentsInfo(article, "video", 0, 10, "20150101", "20151231");
+			strResultData = provider.getRecommendedContentsInfo(article, "article", 0, 10, "20150401", "20150430");
 			System.out.println("#2-4. 연관기사 추천. 특정 컬렉션. 날짜 조건 O : " + strResultData);
 			
 		} catch (Exception e) {
