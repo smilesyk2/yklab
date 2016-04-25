@@ -12,15 +12,15 @@
 	
 	<!-- Logger 설정 -->
 	<Loggers>
-		<Logger name="OpenAPIProvider" level="INFO" additivity="false">
+		<Logger name="OpenAPIProvider" level="DEBUG" additivity="false">
 			<AppenderRef ref="console"/>
 			<AppenderRef ref="file"/>
 		</Logger>
-		<Logger name="WiseTeaWorker" level="DEBUG" additivity="false">
+		<Logger name="WiseTeaWorker" level="INFO" additivity="false">
 			<AppenderRef ref="console"/>
 			<AppenderRef ref="file"/>
 		</Logger>
-		<Logger name="WiseSearchWorker" level="ERROR" additivity="false">
+		<Logger name="WiseSearchWorker" level="INFO" additivity="false">
 			<AppenderRef ref="console"/>
 			<AppenderRef ref="file"/>
 		</Logger>
