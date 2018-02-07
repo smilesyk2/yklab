@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*- 
 '''
 Created on 2017. 6. 13.
 
@@ -12,7 +13,7 @@ import traceback
 from com.wisenut import myLogger
 
 ############# logger 세팅
-logger = myLogger.getMyLogger("esclient", False, True, logging.DEBUG, r"E:\dev\pythonworks\dmap-report_maker-v2")
+logger = myLogger.getMyLogger("esclient", False, True, logging.DEBUG)
 
 ############# Elasticsearch 정보 세팅
 #es_ip = "ec2-13-124-161-198.ap-northeast-2.compute.amazonaws.com"

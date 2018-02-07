@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding: utf-8 -*- 
 import com.wisenut.dao.mariadbclient as db
 import com.wisenut.dao.esclient as es
 import com.wisenut.utils.file_util as file_util

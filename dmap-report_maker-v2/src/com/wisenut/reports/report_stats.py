@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding: utf-8 -*- 
 '''
 Created on 2017. 6. 20.
 
@@ -18,7 +18,7 @@ from com.wisenut import myLogger
 import logging
 import math
 
-logger = myLogger.getMyLogger("report_stats", False, True, logging.DEBUG, r"E:\dev\pythonworks\dmap-report_maker-v2")
+logger = myLogger.getMyLogger("report_stats", False, True, logging.DEBUG)
 
 class ReportStatistics(Report):
     workbook = None

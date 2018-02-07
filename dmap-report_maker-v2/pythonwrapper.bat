@@ -9,4 +9,4 @@ set datasets=%7
 set projectSeq=%8
 set compareYn=%9
 
-cmd /c "set PYTHONPATH=C:\ProgramData\Anaconda3\Lib;E:\dev\pythonworks\dmap-report_maker-v2\src && python E:\dev\pythonworks\dmap-report_maker-v2\src\com\wisenut\excel_maker_test.py %seq% %regDt% %typeCd% %channels% %startDate% %endDate% %datasets% %projectSeq% %compareYn%"
+cmd /c "set PYTHONPATH=C:\ProgramData\Anaconda3\Lib;E:\dev\github\dmap-report_maker-v2\src && python E:\dev\github\dmap-report_maker-v2\src\com\wisenut\excel_maker_test.py %seq% %regDt% %typeCd% %channels% %startDate% %endDate% %datasets% %projectSeq% %compareYn%"

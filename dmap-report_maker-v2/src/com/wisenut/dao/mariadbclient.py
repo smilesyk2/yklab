@@ -1,4 +1,4 @@
-# -*- coding : utf-8 -*-
+# -*- coding: utf-8 -*- 
 '''
 Created on 2017. 5. 30.
 
@@ -10,7 +10,7 @@ import logging
 from com.wisenut import myLogger
 
 ############# logger 세팅
-logger = myLogger.getMyLogger("mariadbclient", False, True, logging.DEBUG, r"E:\dev\pythonworks\dmap-report_maker-v2")
+logger = myLogger.getMyLogger("mariadbclient", False, True, logging.DEBUG)
 
 ############# DB 정보 세팅
 mariadb_ip="211.39.140.249"
