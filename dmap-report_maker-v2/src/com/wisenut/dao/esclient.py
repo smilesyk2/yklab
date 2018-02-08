@@ -29,6 +29,7 @@ attr_dict = {
 
 def clear_scroll(scroll_id):
     try:
+        es_conn = hc.HTTPConnection(es_ip, es_port, timeout=300)
         es_conn.request("DELETE", "/_search/scroll", json.dumps({"scroll_id":scroll_id}), { "Content-Type" : "application/json" })
         logger.info("[clear_scroll] done.")
     except OSError as oserror:
@@ -37,6 +38,9 @@ def clear_scroll(scroll_id):
     except:
         ex = traceback.format_exc()
         logger.error("[clear_scroll] error. Traceback >> %s " % ex)
+        
+        
+        
 
 def get_topic_attr(topic):
     request = {

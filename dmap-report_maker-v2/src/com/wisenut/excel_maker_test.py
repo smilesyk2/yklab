@@ -31,7 +31,7 @@ if __name__ == '__main__':
         "project_seq" : projectSeq,
         "compare_yn" : compareYn
     }
-    print('%s %s' % (req['start_date'], req['end_date']))
+    print(req)
     
     if req['type_cd']=='RSS': # 수집문서통계
         report = ReportStatistics(req)

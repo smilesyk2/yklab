@@ -114,14 +114,14 @@ class ReportStatistics(Report):
                         row += 1
             else:
                 for dataset_seq in params['datasets'].split("^"):
-                    for bucket1 in result['aggregations']['my_aggs1']['buckets'][dataset_seq]['my_aggs2']['buckets']:
-                        for bucket2 in bucket1['my_aggs3']['buckets']:
+                    for bucket1 in result['aggregations']['my_aggs1']['buckets']:
+                        for bucket3 in bucket1['my_aggs2']['buckets'][dataset_seq]['my_aggs3']['buckets']:
                             dataset_name = mariadb.get_dataset_name(dataset_seq) if mariadb.get_dataset_name(dataset_seq)!=None else 'unknown'
                             
                             worksheet.write(1+row, 0, dataset_name, self.default) # 데이터셋 이름
-                            worksheet.write(1+row, 1, bucket1['key'], self.default) # 데이터셋 이름
-                            worksheet.write(1+row, 2, bucket2['key'], self.default) # 데이터셋 이름
-                            worksheet.write(1+row, 3, bucket2['doc_count'], self.default) # 데이터셋 이름
+                            worksheet.write(1+row, 1, bucket3['key'], self.default) # 채널명
+                            worksheet.write(1+row, 2, bucket1['key'], self.default) # 날짜범위
+                            worksheet.write(1+row, 3, bucket3['doc_count'], self.default) # 문서수
                             row += 1
                
             if len(params['datasets'].split("^"))==1:

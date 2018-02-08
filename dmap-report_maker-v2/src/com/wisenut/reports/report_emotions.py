@@ -14,6 +14,7 @@ import copy
 from datetime import timedelta, date
 import re
 import math
+from com.wisenut.enums.query import Query
 
 class ReportEmotions(Report):
     workbook = None
@@ -196,7 +197,7 @@ class ReportEmotions(Report):
             total = result['hits']['total']
             total_percentage = 0.0
             row = 0
-            for bucket in result['aggregations']['my_aggs1']['buckets']:
+            for bucket in result['aggregations']['my_aggs1']['my_aggs2']['buckets']:
                 worksheet.write(1+row, 0, bucket['key'], self.default) # 데이터셋 이름
                 worksheet.write(1+row, 1, bucket['doc_count'], self.default) # 데이터셋 이름
                 
@@ -222,10 +223,10 @@ class ReportEmotions(Report):
             total_percentage = 0.0
             row = 0
             for bucket1 in result['aggregations']['my_aggs1']['buckets']:
-                for bucket2 in bucket1['my_aggs2']['buckets']:
+                for bucket3 in bucket1['my_aggs2']['my_aggs3']['buckets']:
                     worksheet.write(1+row, 0, bucket1['key'], self.default) # 데이터셋 이름
-                    worksheet.write(1+row, 1, bucket2['key'], self.default) # 데이터셋 이름
-                    worksheet.write(1+row, 2, bucket2['doc_count'], self.default) # 데이터셋 이름
+                    worksheet.write(1+row, 1, bucket3['key'], self.default) # 데이터셋 이름
+                    worksheet.write(1+row, 2, bucket3['doc_count'], self.default) # 데이터셋 이름
                     row += 1
             
             # 합계
@@ -385,14 +386,14 @@ class ReportEmotions(Report):
                 worksheet.write(row+1, 7, total, self.header)
         else:
             # 헤더
-            worksheet.write(0, 0, '1Depth', self.header)
-            worksheet.write(0, 1, '2Depth', self.header)
-            worksheet.write(0, 2, '3Depth', self.header)
-            worksheet.write(0, 3, '대분류', self.header)
-            worksheet.write(0, 4, '중분류', self.header)
-            worksheet.write(0, 5, '소분류', self.header)
-            worksheet.write(0, 6, '긍부정', self.header)
-            worksheet.write(0, 7, '날짜', self.header)
+            worksheet.write(0, 0, '날짜', self.header)
+            worksheet.write(0, 1, '1Depth', self.header)
+            worksheet.write(0, 2, '2Depth', self.header)
+            worksheet.write(0, 3, '3Depth', self.header)
+            worksheet.write(0, 4, '대분류', self.header)
+            worksheet.write(0, 5, '중분류', self.header)
+            worksheet.write(0, 6, '소분류', self.header)
+            worksheet.write(0, 7, '긍부정', self.header)
             worksheet.write(0, 8, '분석량', self.header)
                 
             # 데이터
@@ -404,20 +405,24 @@ class ReportEmotions(Report):
             total = 0 
             row = 0
             for bucket1 in result['aggregations']['my_aggs1']['buckets']:
-                for bucket3 in bucket1['my_aggs2']['my_aggs3']['buckets']:
-                    for bucket4 in bucket3['my_aggs4']['buckets']:
+                for bucket3 in bucket1['my_aggs2']['buckets']:
+                    for bucket4 in bucket3['my_aggs3']['my_aggs4']['buckets']:
                         for bucket5 in bucket4['my_aggs5']['buckets']:
                             for bucket6 in bucket5['my_aggs6']['buckets']:
                                 for bucket7 in bucket6['my_aggs7']['buckets']:
-                                    depth_level = bucket1['key'].split(">")
-                                    worksheet.write(1+row, 0, re.sub("[\[\]]", "", depth_level[0]) if len(bucket1['key'].split(">"))>=0 else '', self.default)
-                                    worksheet.write(1+row, 1, re.sub("[\[\]]", "", depth_level[1]) if len(bucket1['key'].split(">"))>=1 else '', self.default)
-                                    worksheet.write(1+row, 2, re.sub("[\[\]]", "", depth_level[2]) if len(bucket1['key'].split(">"))>=2 else '', self.default)
-                                    worksheet.write(1+row, 3, bucket3['key'], self.default)
-                                    worksheet.write(1+row, 4, bucket4['key'], self.default)
-                                    worksheet.write(1+row, 5, bucket5['key'], self.default)
-                                    worksheet.write(1+row, 6, bucket6['key'], self.default)
-                                    worksheet.write(1+row, 7, bucket7['key'], self.default)
+                                    # 날짜 범위
+                                    worksheet.write(1+row, 0, bucket1['key'], self.default)
+                                    
+                                    # 1Depth, 2Depth, 3Depth
+                                    depth_level = bucket3['key'].split(">")
+                                    worksheet.write(1+row, 1, re.sub("[\[\]]", "", depth_level[0]) if len(bucket3['key'].split(">"))>=0 else '', self.default)
+                                    worksheet.write(1+row, 2, re.sub("[\[\]]", "", depth_level[1]) if len(bucket3['key'].split(">"))>=1 else '', self.default)
+                                    worksheet.write(1+row, 3, re.sub("[\[\]]", "", depth_level[2]) if len(bucket3['key'].split(">"))>=2 else '', self.default)
+                                    
+                                    worksheet.write(1+row, 4, bucket4['key'], self.default) # 대분류
+                                    worksheet.write(1+row, 5, bucket5['key'], self.default) # 중분류
+                                    worksheet.write(1+row, 6, bucket6['key'], self.default) # 소분류
+                                    worksheet.write(1+row, 7, bucket7['key'], self.default) # 긍부정
                                     worksheet.write(1+row, 8, bucket7['doc_count'], self.default)
                                     
                                     total += bucket7['doc_count']
@@ -439,13 +444,15 @@ class ReportEmotions(Report):
     
     # 원문
     def create_emotions_list(self, params):
+        thisQueryObj = Query(params)
+        
         size = 10000 # 페이징 사이즈
         
         # 검색 시작
         #result = es.get_documents(params, size, index, "")
-        self.logger.debug("[ReportEmotions][create_emotions_list] %s" % self.queryObj.get_emotions_query())
+        self.logger.debug("[ReportEmotions][create_emotions_list] %s" % thisQueryObj.get_emotions_query())
         
-        totalCount = es.get_count(self.INDEX_NAME+"/doc/_count", self.queryObj.get_emotions_query())
+        totalCount = es.get_count(self.INDEX_NAME+"/doc/_count", thisQueryObj.get_emotions_query())
         
         #if "hits" in result and result["hits"]["total"] > 0:
         if totalCount > 0 :
@@ -455,9 +462,9 @@ class ReportEmotions(Report):
             # 용량이 클 것으로 예상하여 엑셀 파일도 새로 생성.            
             #if "hits" in result and result["hits"]["total"] > size:
             for page in range(math.ceil(totalCount/size)): # 0, 1, 2, ....
+                scrolled_result = es.get_list(self.INDEX_NAME+"/doc/_search", thisQueryObj.get_emotions_query(), size, scroll_id)
                 worksheet = self.workbook.add_worksheet("원문(%s)(%d)"%("~".join([params['start_date'][0:10],params['end_date'][0:10]]), page+1))#>%s(%d)"%(this_dataset_name,page))
-                scrolled_result = es.get_list(self.INDEX_NAME+"/doc/_search", self.queryObj.get_emotions_query(), size, scroll_id)
-                scroll_id = scrolled_result['_scroll_id']
+                scroll_id = copy.copy(scrolled_result['_scroll_id'])
                 
                 # 엑셀 헤더
                 for colidx, field in enumerate(self.EMOTIONS_FIELDS_KOREAN):
@@ -474,9 +481,9 @@ class ReportEmotions(Report):
                             val = this_result["_source"][field] if field in this_result["_source"] else "null"
                             worksheet.write(row+1, col, val, self.default)
                     
-                if page == math.ceil(totalCount/size)-1: # 마지막 페이지를 처리하고 나면 scroll을 clear
-                    if '_scroll_id' in scrolled_result and scrolled_result["_scroll_id"]:
-                        es.clear_scroll(scroll_id)
+                if page == math.ceil(totalCount/size)-1 and scroll_id is not None: # 마지막 페이지를 처리하고 나면 scroll을 clear
+                    es.clear_scroll(scroll_id)
+                    scroll_id = None
     
     
     

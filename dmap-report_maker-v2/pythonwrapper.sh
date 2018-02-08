@@ -1,3 +1,4 @@
+#!/bin/sh
 seq=$1
 regDt=$2
 typeCd=$3

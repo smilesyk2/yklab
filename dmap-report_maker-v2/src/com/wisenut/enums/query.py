@@ -87,7 +87,14 @@ class Query():
               "query" : {
                  "bool" : {
                     "filter" : [
-                       self.get_period_query(),
+                       {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                        self.get_project_seq_query(),
                     ]
                  }
@@ -187,7 +194,14 @@ class Query():
               "query" : {
                  "bool" : {
                     "filter" : [
-                       self.get_period_query(),
+                       {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                        self.get_project_seq_query(),
                     ]
                  }
@@ -293,7 +307,14 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query()
                     ]
                 }
@@ -406,7 +427,14 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query()
                     ]
                 }
@@ -512,7 +540,14 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query()
                     ]
                 }
@@ -601,7 +636,14 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query(),
                         {
                          "term" : {
@@ -810,7 +852,14 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query()
                     ]
                 }
@@ -916,7 +965,14 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query()
                     ]
                 }
@@ -994,32 +1050,23 @@ class Query():
               "query": {
                 "bool" : {
                     "filter": [
-                      {
-                        "term": {
-                            "relation_name": "emotions"
-                        }
-                      },
-                      {
-                        "has_parent" :{
-                            "parent_type" : "documents",
-                            "query" : {
-                                "bool" : {
-                                    "filter" : [
-                                        self.get_period_query(),
-                                        self.get_project_seq_query()
-                                    ]
-                                }
-                            }
-                        }
-                      }
+                      self.get_period_query(),
+                      self.get_project_seq_query()
                     ]
                 }
               },
               "aggs": {
                 "my_aggs1" :{
-                    "terms" : {
-                        "field" : "emotion_type.keyword",
-                        "size" : 10
+                    "children" : {
+                        "type" : "emotions"
+                    },
+                    "aggs" : {
+                        "my_aggs2" : {
+                            "terms" : {
+                                "field" : "emotion_type.keyword",
+                                "size" : 10
+                            }
+                        }
                     }
                 }
               }
@@ -1030,24 +1077,15 @@ class Query():
               "query": {
                 "bool" : {
                     "filter": [
-                      {
-                        "term": {
-                            "relation_name": "emotions"
-                        }
-                      },
-                      {
-                        "has_parent" :{
-                            "parent_type" : "documents",
-                            "query" : {
-                                "bool" : {
-                                    "filter" : [
-                                        self.get_period_query(),
-                                        self.get_project_seq_query()
-                                    ]
-                                }
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
                             }
-                        }
-                      }
+                          }
+                        },
+                        self.get_project_seq_query()
                     ]
                 }
               },
@@ -1076,10 +1114,17 @@ class Query():
                     },
                     "aggs" : {
                         "my_aggs2" : {
-                            "terms" : {
-                                "field" : "emotion_type.keyword",
-                                "size" : 10
-                            }  
+                            "children" : {
+                                "type" : "emotions"
+                            },
+                            "aggs" : { 
+                                "my_aggs3" : {
+                                    "terms" : {
+                                        "field" : "emotion_type.keyword",
+                                        "size" : 10
+                                    } 
+                                }
+                            }
                         }
                     }
                 }
@@ -1087,14 +1132,14 @@ class Query():
             }
         
         if self.get_channel_query():
-            query['query']['bool']['filter'][1]['has_parent']['query']['bool']['filter'].append(self.get_channel_query())
+            query['query']['bool']['filter'].append(self.get_channel_query())
         
         should = []        
         for dataset_seq in self.params['datasets'].split("^"):
             for keyword_set in self.get_dataset_query(dataset_seq): 
                 should.append(keyword_set)
         
-        query['query']['bool']['filter'][1]['has_parent']['query']['bool']['filter'].append({ 'bool' : {'should': should}})
+        query['query']['bool']['filter'].append({ 'bool' : {'should': should}})
         
         return query
         
@@ -1192,7 +1237,14 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query()
                     ]
                 }
@@ -1328,70 +1380,76 @@ class Query():
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
+                        {
+                         "range" : {
+                            "doc_datetime" : {
+                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : self.str_end_date
+                            }
+                          }
+                        },
                         self.get_project_seq_query()
                     ]
                 }
               },
-              "aggs": {
-                "my_aggs1" :{
-                    "terms" : {
-                        "script": "doc['depth1_nm.keyword'] + '>' + doc['depth2_nm.keyword'] + '>' + doc['depth3_nm.keyword']",
-                        "size" : 1000
-                    },
-                    "aggs": {
-                        "my_aggs2" : {
-                            "children" : {
-                                "type" : "emotions"
-                            },
-                            "aggs": {
-                                "my_aggs3":{
-                                    "terms": {
-                                       "field": "conceptlevel1.keyword",
-                                       "size": 1000
-                                    },
-                                    "aggs": {
-                                        "my_aggs4":{
-                                            "terms": {
-                                               "field": "conceptlevel2.keyword",
-                                               "size": 1000
-                                            },
-                                            "aggs": {
-                                                "my_aggs5":{
-                                                    "terms": {
-                                                       "field": "conceptlevel3.keyword",
-                                                       "size": 1000
-                                                    },
-                                                    "aggs": {
-                                                        "my_aggs6":{
-                                                            "terms": {
-                                                               "field": "emotion_type.keyword",
-                                                               "size": 10
-                                                            },
-                                                            "aggs": {
-                                                                "my_aggs7":{
-                                                                    "date_range" : {
-                                                                    "field" : "doc_datetime",
-                                                                    "ranges": [
-                                                                      {
-                                                                        "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                                                        "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
-                                                                      },
-                                                                      {
-                                                                       "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                                                                       "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
-                                                                       },
-                                                                      {
-                                                                       "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                                                                       "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
-                                                                       },
-                                                                      {
-                                                                       "from": self.str_start_date,
-                                                                       "to": self.str_end_date
-                                                                       }
-                                                                    ]
-                                                                  }
-                                                                }
+              "aggs" : {
+                "my_aggs1" : {
+                    "date_range" : {
+                    "field" : "doc_datetime",
+                    "ranges": [
+                      {
+                        "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                        "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                      },
+                      {
+                       "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                       },
+                      {
+                       "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                       },
+                      {
+                       "from": self.str_start_date,
+                       "to": self.str_end_date
+                       }
+                    ]
+                  },
+                  "aggs": {
+                    "my_aggs2" :{
+                        "terms" : {
+                            "script": "doc['depth1_nm.keyword'] + '>' + doc['depth2_nm.keyword'] + '>' + doc['depth3_nm.keyword']",
+                            "size" : 1000
+                        },
+                        "aggs": {
+                            "my_aggs3" : {
+                                "children" : {
+                                    "type" : "emotions"
+                                },
+                                "aggs": {
+                                    "my_aggs4":{
+                                        "terms": {
+                                           "field": "conceptlevel1.keyword",
+                                           "size": 1000
+                                        },
+                                        "aggs": {
+                                            "my_aggs5":{
+                                                "terms": {
+                                                   "field": "conceptlevel2.keyword",
+                                                   "size": 1000
+                                                },
+                                                "aggs": {
+                                                    "my_aggs6":{
+                                                        "terms": {
+                                                           "field": "conceptlevel3.keyword",
+                                                           "size": 1000
+                                                        },
+                                                        "aggs": {
+                                                            "my_aggs7":{
+                                                                "terms": {
+                                                                   "field": "emotion_type.keyword",
+                                                                   "size": 10
+                                                                }                                                            
                                                             }
                                                         }
                                                     }
@@ -1400,11 +1458,10 @@ class Query():
                                         }
                                     }
                                 }
-                            }
-                        } 
+                            } 
+                        }
                     }
-                    
-                  
+                  }
                 }
               }
             }
@@ -1447,6 +1504,7 @@ class Query():
         
     
     def get_period_query(self):
+        '''
         str_start_date = self.params['start_date'] if self.params["start_date"] else "1900-01-01T00:00:00"
         str_end_date = self.params['end_date'] if self.params["end_date"] else "2100-12-31T23:59:59"
         if self.params['compare_yn']=='Y':
@@ -1458,13 +1516,13 @@ class Query():
             this_end_date = end_date - (time_interval+timedelta(days=1))*3 # 곱해진 간격만큼 이전 날짜를 구함
             
             str_start_date = (this_end_date-time_interval).strftime('%Y-%m-%dT00:00:00')
-            
+        ''' 
             
         return {
             "range": {
                 "doc_datetime": {
-                    "gte" : str_start_date,
-                    "lte" : str_end_date
+                    "gte" : self.params['start_date'] if self.params["start_date"] else "1900-01-01T00:00:00",
+                    "lte" : self.params['end_date'] if self.params["end_date"] else "2100-12-31T23:59:59"
                 } 
             }
         }
