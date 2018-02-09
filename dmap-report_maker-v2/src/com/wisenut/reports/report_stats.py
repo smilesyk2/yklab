@@ -14,11 +14,8 @@ import copy
 from datetime import timedelta, date
 from com.wisenut.enums.channel import Channel
 import re
-from com.wisenut import myLogger
-import logging
 import math
-
-logger = myLogger.getMyLogger("report_stats", False, True, logging.DEBUG)
+from com.wisenut.enums.query import Query
 
 class ReportStatistics(Report):
     workbook = None
@@ -40,8 +37,8 @@ class ReportStatistics(Report):
         worksheet.write(0, 1+col_header, '합계', self.header)
             
         # 데이터
-        qdsl = self.queryObj.DATASET_COUNT_PER_DAY_IN_DOCUMENTS(self.compare)
-        logger.debug("[ReportStatistics][dataset_count_per_day_in_documents] %s" % qdsl)
+        qdsl = self.queryObj.DATASET_COUNT_PER_DAY_IN_DOCUMENTS(params, self.compare)
+        self.logger.debug("[ReportStatistics][dataset_count_per_day_in_documents] %s" % qdsl)
         
         result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
         
@@ -96,8 +93,8 @@ class ReportStatistics(Report):
             worksheet.write(0, 3, '문서수', self.header)
             
         # 데이터
-        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH1_IN_DOCUMENTS(self.compare)
-        logger.debug("[ReportStatistics][dataset_occupations_per_depth1_in_documents] %s " % qdsl)
+        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH1_IN_DOCUMENTS(params, self.compare)
+        self.logger.debug("[ReportStatistics][dataset_occupations_per_depth1_in_documents] %s " % qdsl)
         
         result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
         total = result['hits']['total']
@@ -140,8 +137,8 @@ class ReportStatistics(Report):
         worksheet = self.workbook.add_worksheet('채널별 수집량')
         
         # 데이터
-        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH3_IN_DOCUMENTS(self.compare)
-        logger.debug("[ReportStatistics][dataset_occupations_per_depth3_in_documents] %s" % qdsl)
+        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH3_IN_DOCUMENTS(params, self.compare)
+        self.logger.debug("[ReportStatistics][dataset_occupations_per_depth3_in_documents] %s" % qdsl)
         
         if not self.compare:
             # 헤더
@@ -218,8 +215,8 @@ class ReportStatistics(Report):
         worksheet = self.workbook.add_worksheet('채널별 문서점유율')
         
         # 데이터
-        qdsl = self.queryObj.DEPTH1_CHANNEL_OCCUPATIONS(self.compare)
-        logger.debug("[ReportStatistics][depth1_channel_occupations_in_documents] %s "% qdsl)
+        qdsl = self.queryObj.DEPTH1_CHANNEL_OCCUPATIONS(params, self.compare)
+        self.logger.debug("[ReportStatistics][depth1_channel_occupations_in_documents] %s "% qdsl)
         
         result = es.get_aggregations(qdsl, params, self.INDEX_NAME)
         total = result['hits']['total']
@@ -280,12 +277,11 @@ class ReportStatistics(Report):
         elif depth1_seq is Channel.PORTAL:
             sheet_name = '포털 문서량'
             
-        print("sheet_name :: %s" % sheet_name)
         worksheet = self.workbook.add_worksheet(sheet_name)
         
         # 데이터
-        qdsl = self.queryObj.DEPTH2_CHANNEL_OCCUPATIONS(depth1_seq.value, self.compare)
-        logger.debug("[ReportStatistics][depth2_channel_occupations_in_documents] %s" % qdsl)
+        qdsl = self.queryObj.DEPTH2_CHANNEL_OCCUPATIONS(depth1_seq.value, params, self.compare)
+        self.logger.debug("[ReportStatistics][depth2_channel_occupations_in_documents] %s" % qdsl)
         
         result = es.get_aggregations(qdsl, params, self.INDEX_NAME)
         total = result['hits']['total']
@@ -346,8 +342,8 @@ class ReportStatistics(Report):
             #worksheet.write(0, 6, '표현어', self.header)
             
         # 데이터
-        qdsl = self.queryObj.TOPICS_LIST()
-        logger.debug("[ReportStatistics][topics_list] %s" % qdsl)    
+        qdsl = self.queryObj.TOPICS_LIST(params)
+        self.logger.debug("[ReportStatistics][topics_list] %s" % qdsl)    
         
         # 데이터
         result_topic = es.get_aggregations(qdsl, params, self.INDEX_NAME)
@@ -394,8 +390,8 @@ class ReportStatistics(Report):
         worksheet.write(0, 2, '문서수', self.header)
             
         # 데이터
-        qdsl = self.queryObj.TOPICS_VERBS_LIST()
-        logger.debug("[ReportStatistics][topics_verb_list] %s" % qdsl)   
+        qdsl = self.queryObj.TOPICS_VERBS_LIST(params)
+        self.logger.debug("[ReportStatistics][topics_verb_list] %s" % qdsl)   
         
         result_topic = es.get_aggregations(qdsl, params, self.INDEX_NAME)
         row=0
@@ -416,9 +412,9 @@ class ReportStatistics(Report):
         
         # 검색 시작
         #result = es.get_documents(params, size, index, "")
-        totalCount = es.get_count(self.INDEX_NAME+"/doc/_count", self.queryObj.get_documents_query())
+        totalCount = es.get_count("/"+index+"/doc/_count", self.queryObj.get_documents_query(params))
         
-        self.logger.debug("[ReportStatistics][create_documents_list] %s" % self.queryObj.get_documents_query())
+        self.logger.debug("[ReportStatistics][create_documents_list] %s" % self.queryObj.get_documents_query(params))
         
         
         #if "hits" in result and result["hits"]["total"] > 0:
@@ -430,7 +426,7 @@ class ReportStatistics(Report):
             #if "hits" in result and result["hits"]["total"] > size:
             for page in range(math.ceil(totalCount/size)): # 0, 1, 2, ....
                 worksheet = self.workbook.add_worksheet("원문(%s)(%d)"%("~".join([params['start_date'][0:10],params['end_date'][0:10]]), page+1))#>%s(%d)"%(this_dataset_name,page))
-                scrolled_result = es.get_list(self.INDEX_NAME+"/doc/_search", self.queryObj.get_documents_query(), size, scroll_id)
+                scrolled_result = es.get_list("/"+index+"/doc/_search", self.queryObj.get_documents_query(params), size, scroll_id)
                 scroll_id = scrolled_result['_scroll_id']
                 
                 # 엑셀 헤더
@@ -483,9 +479,9 @@ class ReportStatistics(Report):
                 # 기준날짜
                 start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
                 end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+                time_interval = end_date-start_date
                 
                 for i in range(4):
-                    time_interval = end_date-start_date
                     # 비교 날짜들(1time_interval before)
                     this_end_date = end_date - (time_interval+timedelta(days=1))*i # 곱해진 간격만큼 이전 날짜를 구함
                     
@@ -496,5 +492,7 @@ class ReportStatistics(Report):
                     self.topics_list(new_params)
                     self.topics_verb_list(new_params)
                     self.create_documents_list(new_params, self.INDEX_NAME)
+                    
+                    new_params = None
         
         self.workbook.close()

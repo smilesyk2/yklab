@@ -36,7 +36,7 @@ class ReportEmotions(Report):
         worksheet.write(0, 1+col_header, '합계', self.header)
             
         # 데이터
-        qdsl = self.queryObj.DATASET_COUNT_PER_DAY_IN_EMOTIONS(self.compare)
+        qdsl = self.queryObj.DATASET_COUNT_PER_DAY_IN_EMOTIONS(params, self.compare)
         self.logger.debug("[ReportEmotions][dataset_count_per_day_in_emotions] %s" % qdsl)
         
         result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
@@ -87,7 +87,7 @@ class ReportEmotions(Report):
             worksheet.write(0, 3, '분석량', self.header)
             
         # 데이터
-        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH1_IN_EMOTIONS(self.compare)
+        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH1_IN_EMOTIONS(params, self.compare)
         self.logger.debug("[ReportEmotions][dataset_occupations_per_depth1_in_emotions] %s" % qdsl)
         
         result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
@@ -144,7 +144,7 @@ class ReportEmotions(Report):
         worksheet.write(0, 4, '분석량', self.header)
             
         # 데이터
-        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH3_IN_EMOTIONS(self.compare)
+        qdsl = self.queryObj.DATASET_OCCUPATIONS_PER_DEPTH3_IN_EMOTIONS(params, self.compare)
         self.logger.debug("[ReportEmotions][dataset_occupations_per_depth3_in_emotions] %s" % qdsl)
         
         result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
@@ -190,11 +190,12 @@ class ReportEmotions(Report):
             worksheet.write(0, 2, '점유율(%)', self.header)
             
             # 데이터
-            qdsl = self.queryObj.EMOTIONS_OCCUPATIONS(self.compare)
+            qdsl = self.queryObj.EMOTIONS_OCCUPATIONS(params, self.compare)
             self.logger.debug("[ReportEmotions][occupation_per_emotions] %s" % qdsl)
             
             result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
-            total = result['hits']['total']
+            
+            total = result['aggregations']['my_aggs1']['doc_count']
             total_percentage = 0.0
             row = 0
             for bucket in result['aggregations']['my_aggs1']['my_aggs2']['buckets']:
@@ -215,11 +216,12 @@ class ReportEmotions(Report):
             worksheet.write(0, 2, '분석량', self.header)
             
             # 데이터
-            qdsl = self.queryObj.EMOTIONS_OCCUPATIONS(self.compare)
+            qdsl = self.queryObj.EMOTIONS_OCCUPATIONS(params, self.compare)
             self.logger.debug("[ReportEmotions][occupation_per_emotions] %s" % qdsl)
             
             result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
-            total = result['hits']['total']
+            
+            total = 0
             total_percentage = 0.0
             row = 0
             for bucket1 in result['aggregations']['my_aggs1']['buckets']:
@@ -227,6 +229,8 @@ class ReportEmotions(Report):
                     worksheet.write(1+row, 0, bucket1['key'], self.default) # 데이터셋 이름
                     worksheet.write(1+row, 1, bucket3['key'], self.default) # 데이터셋 이름
                     worksheet.write(1+row, 2, bucket3['doc_count'], self.default) # 데이터셋 이름
+                    
+                    total += bucket3['doc_count']
                     row += 1
             
             # 합계
@@ -247,7 +251,7 @@ class ReportEmotions(Report):
         worksheet.write(0, 2, '분석량', self.header)
         
         # 데이터
-        qdsl = self.queryObj.EMOTIONS_PROGRESS()
+        qdsl = self.queryObj.EMOTIONS_PROGRESS(params)
         self.logger.debug("[ReportEmotions][emotions_per_day] %s" % qdsl)
         
         result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
@@ -278,7 +282,7 @@ class ReportEmotions(Report):
         #arr_dataset_names = self.dataset_names.split(",")
         
         # 데이터
-        qdsl = self.queryObj.EMOTIONS_PER_DEPTH1(self.compare)
+        qdsl = self.queryObj.EMOTIONS_PER_DEPTH1(params, self.compare)
         self.logger.debug("[ReportEmotions][emotions_per_channel] %s" % qdsl)
         
         result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
@@ -349,7 +353,7 @@ class ReportEmotions(Report):
             worksheet.write(0, 7, '분석량', self.header)
                 
             # 데이터
-            qdsl = self.queryObj.EMOTIONS_PER_CAUSES(self.compare)
+            qdsl = self.queryObj.EMOTIONS_PER_CAUSES(params, self.compare)
             self.logger.debug("[ReportEmotions][emotions_per_causes] %s" % qdsl)
             
             result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
@@ -397,7 +401,7 @@ class ReportEmotions(Report):
             worksheet.write(0, 8, '분석량', self.header)
                 
             # 데이터
-            qdsl = self.queryObj.EMOTIONS_PER_CAUSES(self.compare)
+            qdsl = self.queryObj.EMOTIONS_PER_CAUSES(params, self.compare)
             self.logger.debug("[ReportEmotions][emotions_per_causes] %s" % qdsl)
             
             result = es.get_aggregations(copy.copy(qdsl), params, self.INDEX_NAME)
@@ -444,15 +448,13 @@ class ReportEmotions(Report):
     
     # 원문
     def create_emotions_list(self, params):
-        thisQueryObj = Query(params)
-        
         size = 10000 # 페이징 사이즈
         
         # 검색 시작
         #result = es.get_documents(params, size, index, "")
-        self.logger.debug("[ReportEmotions][create_emotions_list] %s" % thisQueryObj.get_emotions_query())
+        self.logger.debug("[ReportEmotions][create_emotions_list] %s" % self.queryObj.get_emotions_query(params))
         
-        totalCount = es.get_count(self.INDEX_NAME+"/doc/_count", thisQueryObj.get_emotions_query())
+        totalCount = es.get_count(self.INDEX_NAME+"/doc/_count", self.queryObj.get_emotions_query(params))
         
         #if "hits" in result and result["hits"]["total"] > 0:
         if totalCount > 0 :
@@ -462,7 +464,7 @@ class ReportEmotions(Report):
             # 용량이 클 것으로 예상하여 엑셀 파일도 새로 생성.            
             #if "hits" in result and result["hits"]["total"] > size:
             for page in range(math.ceil(totalCount/size)): # 0, 1, 2, ....
-                scrolled_result = es.get_list(self.INDEX_NAME+"/doc/_search", thisQueryObj.get_emotions_query(), size, scroll_id)
+                scrolled_result = es.get_list(self.INDEX_NAME+"/doc/_search", self.queryObj.get_emotions_query(params), size, scroll_id)
                 worksheet = self.workbook.add_worksheet("원문(%s)(%d)"%("~".join([params['start_date'][0:10],params['end_date'][0:10]]), page+1))#>%s(%d)"%(this_dataset_name,page))
                 scroll_id = copy.copy(scrolled_result['_scroll_id'])
                 
@@ -524,6 +526,8 @@ class ReportEmotions(Report):
                     new_params['end_date'] = this_end_date.strftime('%Y-%m-%dT23:59:59')
                     
                     self.create_emotions_list(new_params)
+                    
+                    new_params = None
         
         
         self.workbook.close()

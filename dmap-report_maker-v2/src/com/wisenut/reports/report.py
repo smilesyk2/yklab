@@ -65,7 +65,7 @@ class Report:
         if os.name == 'nt' and bool(re.match("[\/\\\"*?<>\|]", self.dataset_names)):
             self.dataset_names = re.sub("[\/\\\"*?<>\|]", "_", self.dataset_names)
             
-        self.queryObj = Query(params)
+        self.queryObj = Query()
         
         compare_yn = "동일기간비교" if params['compare_yn']=='Y' else "해당기간"
         
@@ -76,6 +76,11 @@ class Report:
                 self.file_name = "_".join([str(self.seq), self.report_type, self.channel, self.start_date, self.end_date, compare_yn]) + ".xlsx"
             else:
                 self.file_name = "_".join([str(self.seq), self.report_type+"("+self.dataset_names+")", self.channel, self.start_date, self.end_date, compare_yn]) + ".xlsx"
+                
+        self.logger.info("=======================================================================================")
+        for k, v in params.items():
+            self.logger.info(k + " :\t\t" + v)
+        self.logger.info("=======================================================================================")    
         
     def get_file_name(self):
         return self.file_name

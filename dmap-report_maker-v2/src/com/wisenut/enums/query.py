@@ -12,59 +12,23 @@ import com.wisenut.dao.mariadbclient as mariadb
 
 #class Query(Enum):
 class Query():
-    params = None
-    start_date = None
-    end_date = None
-    str_start_date = ''
-    str_end_date = ''
-    time_interval = None
-    #SOCIAL_COMPARE_DAY=auto()
-    #SOCIAL_COMPARE_EMOTIONS=auto()
-    #SOCIAL_COMPARE_CHANNEL=auto()
-    #
-    #SOCIAL_PROCESS_DATASET=auto()
-    #SOCIAL_PROCESS_CHANNEL=auto()
-    #SOCIAL_PROCESS_PORTAL=auto()
-    #SOCIAL_PROCESS_MEDIA=auto()
-    #SOCIAL_PROCESS_COMMUNITY=auto()
-    #SOCIAL_PROCESS_SNS=auto()
-    #SOCIAL_PROCESS_CLUB=auto()
-    #SOCIAL_PROCESS_EMOTIONS=auto()
-    #SOCIAL_PROCESS_CAUSES=auto()
-    #
-    #SOCIAL_OCCUPATION_DATASET=auto()
-    #SOCIAL_OCCUPATION_CHANNEL=auto()
-    #SOCIAL_OCCUPATION_PORTAL=auto()
-    #SOCIAL_OCCUPATION_MEDIA=auto()
-    #SOCIAL_OCCUPATION_COMMUNITY=auto()
-    #SOCIAL_OCCUPATION_SNS=auto()
-    #SOCIAL_OCCUPATION_CLUB=auto()
-    #SOCIAL_OCCUPATION_EMOTIONS=auto()
-    #SOCIAL_OCCUPATION_CAUSES=auto()
-    #
-    #SOCIAL_TOPICS_LIST=auto()
-    def __init__(self, params):
-        self.params = params
-        self.start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
-        self.end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
-        
-        self.str_start_date = self.start_date.strftime('%Y-%m-%dT00:00:00')
-        self.str_end_date = self.end_date.strftime('%Y-%m-%dT23:59:59')
-        self.time_interval = self.end_date-self.start_date+timedelta(days=1)
-        
+    def __init__(self):
+        pass
     
     
     
-    def DATASET_COUNT_PER_DAY_IN_DOCUMENTS(self, compare=False):
+    
+    def DATASET_COUNT_PER_DAY_IN_DOCUMENTS(self, params, compare=False):
         if not compare:
             query =  {
               "size" : 0,
               "query" : {
                  "bool" : {
                     "filter" : [
-                       self.get_period_query(),
-                       self.get_project_seq_query(),
-                    ]
+                       self.get_period_query(params['start_date'], params['end_date']),
+                       self.get_project_seq_query(params['project_seq']),
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                  }
               },
               "aggs" : {
@@ -82,6 +46,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query =  {
               "size" : 0,
               "query" : {
@@ -90,13 +58,14 @@ class Query():
                        {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                       self.get_project_seq_query(),
-                    ]
+                       self.get_project_seq_query(params['project_seq']),
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                  }
               },
               "aggs" : {
@@ -105,20 +74,20 @@ class Query():
                     "field" : "doc_datetime",
                     "ranges": [
                       {
-                        "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                        "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                        "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                        "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                       },
                       {
-                       "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                       "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                       "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                        },
                       {
-                       "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                       "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                       "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                        },
                       {
-                       "from": self.str_start_date,
-                       "to": self.str_end_date
+                       "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                       "to": end_date.strftime('%Y-%m-%dT23:59:59')
                        }
                     ]
                   },
@@ -131,22 +100,18 @@ class Query():
               }
             }
             
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
-        
-        # 프로젝트 필터 쿼리는 global하게 설정.
-        if len(self.get_project_filter_query(self.params['project_seq'])) > 0 :
-            query['query']['bool']['must_not'] = self.get_project_filter_query(self.params['project_seq'])
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
         
         # 검색 범위를 제한하는 데 쓰이는 쿼리
         should = [] 
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
-                should.append(keyword_set)
+        for datasetSeq in params['datasets'].split("^"):
+            for keywordSet in self.get_dataset_query(datasetSeq): 
+                should.append(keywordSet)
             # aggregation을 위해 filters에 추가할 쿼리
-            query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["filters"]["filters"][dataset_seq] = {
+            query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["filters"]["filters"][datasetSeq] = {
                                                                                                 "bool" : {
-                                                                                                    "should" : self.get_dataset_query(dataset_seq)
+                                                                                                    "should" : self.get_dataset_query(datasetSeq)
                                                                                                 }
                                                                                             }
         
@@ -155,16 +120,17 @@ class Query():
     
        
        
-    def DATASET_COUNT_PER_DAY_IN_EMOTIONS(self, compare=False):
+    def DATASET_COUNT_PER_DAY_IN_EMOTIONS(self, params, compare=False):
         if not compare:
             query =  {
               "size" : 0,
               "query" : {
                  "bool" : {
                     "filter" : [
-                       self.get_period_query(),
-                       self.get_project_seq_query(),
-                    ]
+                       self.get_period_query(params['start_date'], params['end_date']),
+                       self.get_project_seq_query(params['project_seq']),
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                  }
               },
               "aggs" : {
@@ -189,6 +155,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query =  {
               "size" : 0,
               "query" : {
@@ -197,13 +167,14 @@ class Query():
                        {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59'),
                             }
                           }
                         },
-                       self.get_project_seq_query(),
-                    ]
+                       self.get_project_seq_query(params['project_seq']),
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                  }
               },
               "aggs" : {
@@ -212,20 +183,20 @@ class Query():
                     "field" : "doc_datetime",
                     "ranges": [
                       {
-                        "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                        "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                        "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                        "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                       },
                       {
-                       "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                       "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                       "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                        },
                       {
-                       "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                       "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                       "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                        },
                       {
-                       "from": self.str_start_date,
-                       "to": self.str_end_date
+                       "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                       "to": end_date.strftime('%Y-%m-%dT23:59:59')
                        }
                     ]
                   },
@@ -245,24 +216,21 @@ class Query():
               }
             }
             
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
-        
-        # 프로젝트 필터 쿼리는 global하게 설정.
-        if len(self.get_project_filter_query(self.params['project_seq'])) > 0 :
-            query['query']['bool']['must_not'] = self.get_project_filter_query(self.params['project_seq'])
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
         
         # 검색 범위를 제한하는 데 쓰이는 쿼리
         should = [] 
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
             # aggregation을 위해 filters에 추가할 쿼리
-            query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["aggs"]["my_aggs3"]["filters"]["filters"][dataset_seq] = {
-                                                                                                                    "bool" : {
-                                                                                                                        "should" : self.get_dataset_query(dataset_seq)
-                                                                                                                    }
-                                                                                                                }
+            query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["aggs"]["my_aggs3"]["filters"]["filters"][datasetSeq] = { "has_parent" : {"parent_type" : "documents",
+                                                                                                                                    "query" :{
+                                                                                                                                        "bool" : {
+                                                                                                                                            "should" : self.get_dataset_query(datasetSeq)
+                                                                                                                                        }
+                                                                                                                }}}
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
         # 2018.01.29 must -> filter로 변경.
@@ -273,16 +241,17 @@ class Query():
         
         
     
-    def DATASET_OCCUPATIONS_PER_DEPTH1_IN_DOCUMENTS(self, compare=False):
+    def DATASET_OCCUPATIONS_PER_DEPTH1_IN_DOCUMENTS(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query()
-                    ]
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -302,6 +271,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -310,13 +283,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -325,20 +299,20 @@ class Query():
                         "field" : "doc_datetime",
                         "ranges": [
                           {
-                            "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                            "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                            "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                            "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                           },
                           {
-                           "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": self.str_start_date,
-                           "to": self.str_end_date
+                           "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                           "to": end_date.strftime('%Y-%m-%dT23:59:59')
                            }
                         ]
                       },
@@ -359,23 +333,19 @@ class Query():
               }
             }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
             
-        # 프로젝트 필터 쿼리는 global하게 설정.
-        if len(self.get_project_filter_query(self.params['project_seq'])) > 0 :
-            query['query']['bool']['must_not'].append(self.get_project_filter_query(self.params['project_seq']))
-                    
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
+        for datasetSeq in params['datasets'].split("^"):
             # 검색할 때 범위를 제한.
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
             # aggregation의 결과를 데이터셋마다 갖고 오기 위한 쿼리.
             if not compare:
-                query["aggs"]["my_aggs1"]["filters"]["filters"][dataset_seq] = { "bool" : { "should" : self.get_dataset_query(dataset_seq) } }
+                query["aggs"]["my_aggs1"]["filters"]["filters"][datasetSeq] = { "bool" : { "should" : self.get_dataset_query(datasetSeq) } }
             else:
-                query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["filters"]["filters"][dataset_seq] = { "bool" : { "should" : self.get_dataset_query(dataset_seq) } }
+                query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["filters"]["filters"][datasetSeq] = { "bool" : { "should" : self.get_dataset_query(datasetSeq) } }
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
         # 2018.01.29 must -> filter로 변경.
@@ -386,16 +356,17 @@ class Query():
     
         
         
-    def DATASET_OCCUPATIONS_PER_DEPTH1_IN_EMOTIONS(self, compare=False):
+    def DATASET_OCCUPATIONS_PER_DEPTH1_IN_EMOTIONS(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query()
-                    ]
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -422,6 +393,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -430,13 +405,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -445,20 +421,20 @@ class Query():
                         "field" : "doc_datetime",
                         "ranges": [
                           {
-                            "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                            "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                            "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                            "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                           },
                           {
-                           "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": self.str_start_date,
-                           "to": self.str_end_date
+                           "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                           "to": end_date.strftime('%Y-%m-%dT23:59:59')
                            }
                         ]
                       },
@@ -486,23 +462,19 @@ class Query():
               }
             }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
             
-        # 프로젝트 필터 쿼리는 global하게 설정.
-        if len(self.get_project_filter_query(self.params['project_seq'])) > 0 :
-            query['query']['bool']['must_not'].append(self.get_project_filter_query(self.params['project_seq']))
-                    
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
+        for datasetSeq in params['datasets'].split("^"):
             # 검색할 때 범위를 제한.
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
             # aggregation의 결과를 데이터셋마다 갖고 오기 위한 쿼리.
             if not compare:
-                query["aggs"]["my_aggs1"]["filters"]["filters"][dataset_seq] = { "bool" : { "should" : self.get_dataset_query(dataset_seq) } }
+                query["aggs"]["my_aggs1"]["filters"]["filters"][datasetSeq] = { "bool" : { "should" : self.get_dataset_query(datasetSeq) } }
             else:
-                query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["filters"]["filters"][dataset_seq] = { "bool" : { "should" : self.get_dataset_query(dataset_seq) } }
+                query["aggs"]["my_aggs1"]["aggs"]["my_aggs2"]["filters"]["filters"][datasetSeq] = { "bool" : { "should" : self.get_dataset_query(datasetSeq) } }
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
         # 2018.01.29 must -> filter로 변경.
@@ -513,16 +485,17 @@ class Query():
     
     
     
-    def DEPTH1_CHANNEL_OCCUPATIONS(self, compare=False):
+    def DEPTH1_CHANNEL_OCCUPATIONS(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query()
-                    ]
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
              "aggs" : {
@@ -535,6 +508,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -543,13 +520,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
                 "aggs" : {
@@ -564,20 +542,20 @@ class Query():
                         "field" : "doc_datetime",
                         "ranges": [
                           {
-                            "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                            "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                            "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                            "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                           },
                           {
-                           "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": self.str_start_date,
-                           "to": self.str_end_date
+                           "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                           "to": end_date.strftime('%Y-%m-%dT23:59:59')
                            }
                         ]
                       }
@@ -587,12 +565,12 @@ class Query():
                 }
             }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
                     
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
@@ -604,21 +582,22 @@ class Query():
     
     
     
-    def DEPTH2_CHANNEL_OCCUPATIONS(self, depth1_seq, compare=False):
+    def DEPTH2_CHANNEL_OCCUPATIONS(self, depth1_seq, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query(),
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq']),
                         {
                          "term" : {
                             "depth1_seq" : depth1_seq
                          }
                         }
-                    ]
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
              "aggs" : {
@@ -631,6 +610,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -639,18 +622,19 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query(),
+                        self.get_project_seq_query(params['project_seq']),
                         {
                          "term" : {
                             "depth1_seq" : depth1_seq
                          }
                         }
-                    ]
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
                 "aggs" : {
@@ -665,20 +649,20 @@ class Query():
                         "field" : "doc_datetime",
                         "ranges": [
                           {
-                            "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                            "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                            "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                            "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                           },
                           {
-                           "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": self.str_start_date,
-                           "to": self.str_end_date
+                           "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                           "to": end_date.strftime('%Y-%m-%dT23:59:59')
                            }
                         ]
                       }
@@ -688,12 +672,12 @@ class Query():
                 }
             }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
                     
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
@@ -704,7 +688,7 @@ class Query():
     
         
     
-    def TOPICS_LIST(self):
+    def TOPICS_LIST(self, params):
         query = {
           "size": 0,
           "query": {
@@ -716,9 +700,10 @@ class Query():
                         "query" : {
                             "bool" : {
                                 "filter" : [
-                                    self.get_period_query(),
-                                    self.get_project_seq_query()
-                                ]
+                                    self.get_period_query(params['start_date'], params['end_date']),
+                                    self.get_project_seq_query(params['project_seq'])
+                                ],
+                                "must_not" : self.get_project_filter_query(params['project_seq'])
                             }
                         }
                       }
@@ -749,12 +734,12 @@ class Query():
          }
         }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'][0]['has_parent']['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'][0]['has_parent']['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
                     
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
@@ -765,7 +750,7 @@ class Query():
     
     
     
-    def TOPICS_VERBS_LIST(self):
+    def TOPICS_VERBS_LIST(self, params):
         query = {
           "size": 0,
           "query": {
@@ -777,9 +762,10 @@ class Query():
                         "query" : {
                             "bool" : {
                                 "filter" : [
-                                    self.get_period_query(),
-                                    self.get_project_seq_query()
-                                ]
+                                    self.get_period_query(params['start_date'], params['end_date']),
+                                    self.get_project_seq_query(params['project_seq'])
+                                ],
+                                "must_not" : self.get_project_filter_query(params['project_seq'])                            
                             }
                         }
                       }
@@ -802,12 +788,12 @@ class Query():
           }
         }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'][0]['has_parent']['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'][0]['has_parent']['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
                     
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
@@ -818,16 +804,17 @@ class Query():
     
         
         
-    def DATASET_OCCUPATIONS_PER_DEPTH3_IN_DOCUMENTS(self, compare=False):
+    def DATASET_OCCUPATIONS_PER_DEPTH3_IN_DOCUMENTS(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query()
-                    ]
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -847,6 +834,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -855,13 +846,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -881,20 +873,20 @@ class Query():
                             "field" : "doc_datetime",
                             "ranges": [
                               {
-                                "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                                "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                               },
                               {
-                               "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                               "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                               "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                               "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                                },
                               {
-                               "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                               "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                               "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                               "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                                },
                               {
-                               "from": self.str_start_date,
-                               "to": self.str_end_date
+                               "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                               "to": end_date.strftime('%Y-%m-%dT23:59:59')
                                }
                             ]
                           }
@@ -906,15 +898,15 @@ class Query():
               }
             }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
                     
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
                 
-            query["aggs"]["my_aggs1"]["filters"]["filters"][dataset_seq] = { "bool" : { "should" : self.get_dataset_query(dataset_seq) } }
+            query["aggs"]["my_aggs1"]["filters"]["filters"][datasetSeq] = { "bool" : { "should" : self.get_dataset_query(datasetSeq) } }
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
         query['query']['bool']['filter'].append({ 'bool' : {'should': should}})
@@ -924,16 +916,17 @@ class Query():
         
     
         
-    def DATASET_OCCUPATIONS_PER_DEPTH3_IN_EMOTIONS(self, compare=False):
+    def DATASET_OCCUPATIONS_PER_DEPTH3_IN_EMOTIONS(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query()
-                    ]
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -960,6 +953,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -968,13 +965,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -994,20 +992,20 @@ class Query():
                             "field" : "doc_datetime",
                             "ranges": [
                               {
-                                "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                                "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                               },
                               {
-                               "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                               "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                               "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                               "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                                },
                               {
-                               "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                               "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                               "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                               "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                                },
                               {
-                               "from": self.str_start_date,
-                               "to": self.str_end_date
+                               "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                               "to": end_date.strftime('%Y-%m-%dT23:59:59')
                                }
                             ]
                           },
@@ -1026,15 +1024,15 @@ class Query():
               }
             }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
                     
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
                 
-            query["aggs"]["my_aggs1"]["filters"]["filters"][dataset_seq] = { "bool" : { "should" : self.get_dataset_query(dataset_seq) } }
+            query["aggs"]["my_aggs1"]["filters"]["filters"][datasetSeq] = { "bool" : { "should" : self.get_dataset_query(datasetSeq) } }
         
         # 2017.07.26 데이터셋 조건도 검색에 걸어줘야 날짜별 doc_count가 제한된 데이터셋 조건 내에서 합산되어 나옴.
         query['query']['bool']['filter'].append({ 'bool' : {'should': should}})
@@ -1043,16 +1041,17 @@ class Query():
     
     
     
-    def EMOTIONS_OCCUPATIONS(self, compare=False):
+    def EMOTIONS_OCCUPATIONS(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter": [
-                      self.get_period_query(),
-                      self.get_project_seq_query()
-                    ]
+                      self.get_period_query(params['start_date'], params['end_date']),
+                      self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -1072,6 +1071,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -1080,13 +1083,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -1095,20 +1099,20 @@ class Query():
                         "field" : "doc_datetime",
                         "ranges": [
                           {
-                            "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                            "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                            "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                            "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                           },
                           {
-                           "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": self.str_start_date,
-                           "to": self.str_end_date
+                           "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                           "to": end_date.strftime('%Y-%m-%dT23:59:59')
                            }
                         ]
                     },
@@ -1131,12 +1135,12 @@ class Query():
               }
             }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
         
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         query['query']['bool']['filter'].append({ 'bool' : {'should': should}})
@@ -1144,15 +1148,16 @@ class Query():
         return query
         
         
-    def EMOTIONS_PROGRESS(self):
+    def EMOTIONS_PROGRESS(self, params):
         query = {
           "size": 0,
           "query": {
              "bool" :{
                 "filter" : [
-                    self.get_period_query(),
-                    self.get_project_seq_query()
-                ]
+                    self.get_period_query(params['start_date'], params['end_date']),
+                    self.get_project_seq_query(params['project_seq'])
+                ],
+                "must_not" : self.get_project_filter_query(params['project_seq'])
               }
           },
          "aggs": {
@@ -1180,12 +1185,12 @@ class Query():
           }
         }
         
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
         
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         query['query']['bool']['filter'].append({ 'bool' : {'should': should}})
@@ -1195,16 +1200,17 @@ class Query():
     
     
         
-    def EMOTIONS_PER_DEPTH1(self, compare=False):
+    def EMOTIONS_PER_DEPTH1(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query()
-                    ]
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -1232,6 +1238,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -1240,13 +1250,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -1255,20 +1266,20 @@ class Query():
                         "field" : "doc_datetime",
                         "ranges": [
                           {
-                            "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                            "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                            "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                            "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                           },
                           {
-                           "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                           "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                           "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                           "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                            },
                           {
-                           "from": self.str_start_date,
-                           "to": self.str_end_date
+                           "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                           "to": end_date.strftime('%Y-%m-%dT23:59:59')
                            }
                         ]
                       },
@@ -1299,12 +1310,12 @@ class Query():
               }
             }
     
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
         
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         query['query']['bool']['filter'].append({ 'bool' : {'should': should}})
@@ -1314,16 +1325,17 @@ class Query():
         
         
         
-    def EMOTIONS_PER_CAUSES(self, compare=False):
+    def EMOTIONS_PER_CAUSES(self, params, compare=False):
         if not compare:
             query = {
               "size": 0,
               "query": {
                 "bool" : {
                     "filter" : [
-                        self.get_period_query(),
-                        self.get_project_seq_query()
-                    ]
+                        self.get_period_query(params['start_date'], params['end_date']),
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs": {
@@ -1375,6 +1387,10 @@ class Query():
               }
             }
         else:
+            start_date = date(int(params['start_date'][0:4]), int(params['start_date'][5:7]), int(params['start_date'][8:10]))
+            end_date = date(int(params['end_date'][0:4]), int(params['end_date'][5:7]), int(params['end_date'][8:10]))
+            time_interval = end_date-start_date+timedelta(days=1)
+            
             query = {
               "size": 0,
               "query": {
@@ -1383,13 +1399,14 @@ class Query():
                         {
                          "range" : {
                             "doc_datetime" : {
-                                "from" : (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                                "to" : self.str_end_date
+                                "from" : (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                                "to" : end_date.strftime('%Y-%m-%dT23:59:59')
                             }
                           }
                         },
-                        self.get_project_seq_query()
-                    ]
+                        self.get_project_seq_query(params['project_seq'])
+                    ],
+                    "must_not" : self.get_project_filter_query(params['project_seq'])
                 }
               },
               "aggs" : {
@@ -1398,20 +1415,20 @@ class Query():
                     "field" : "doc_datetime",
                     "ranges": [
                       {
-                        "from": (self.start_date-self.time_interval*3).strftime('%Y-%m-%dT00:00:00'),
-                        "to": (self.end_date-self.time_interval*3).strftime('%Y-%m-%dT23:59:59')
+                        "from": (start_date-time_interval*3).strftime('%Y-%m-%dT00:00:00'),
+                        "to": (end_date-time_interval*3).strftime('%Y-%m-%dT23:59:59')
                       },
                       {
-                       "from": (self.start_date-self.time_interval*2).strftime('%Y-%m-%dT00:00:00'),
-                       "to": (self.end_date-self.time_interval*2).strftime('%Y-%m-%dT23:59:59')
+                       "from": (start_date-time_interval*2).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (end_date-time_interval*2).strftime('%Y-%m-%dT23:59:59')
                        },
                       {
-                       "from": (self.start_date-self.time_interval*1).strftime('%Y-%m-%dT00:00:00'),
-                       "to": (self.end_date-self.time_interval*1).strftime('%Y-%m-%dT23:59:59')
+                       "from": (start_date-time_interval*1).strftime('%Y-%m-%dT00:00:00'),
+                       "to": (end_date-time_interval*1).strftime('%Y-%m-%dT23:59:59')
                        },
                       {
-                       "from": self.str_start_date,
-                       "to": self.str_end_date
+                       "from": start_date.strftime('%Y-%m-%dT00:00:00'),
+                       "to": end_date.strftime('%Y-%m-%dT23:59:59')
                        }
                     ]
                   },
@@ -1466,12 +1483,12 @@ class Query():
               }
             }
     
-        if self.get_channel_query():
-            query['query']['bool']['filter'].append(self.get_channel_query())
+        if self.get_channel_query(params['channels']):
+            query['query']['bool']['filter'].append(self.get_channel_query(params['channels']))
         
         should = []        
-        for dataset_seq in self.params['datasets'].split("^"):
-            for keyword_set in self.get_dataset_query(dataset_seq): 
+        for datasetSeq in params['datasets'].split("^"):
+            for keyword_set in self.get_dataset_query(datasetSeq): 
                 should.append(keyword_set)
         
         query['query']['bool']['filter'].append({'bool' : {'should': should}})
@@ -1503,7 +1520,7 @@ class Query():
         
         
     
-    def get_period_query(self):
+    def get_period_query(self, startDate, endDate):
         '''
         str_start_date = self.params['start_date'] if self.params["start_date"] else "1900-01-01T00:00:00"
         str_end_date = self.params['end_date'] if self.params["end_date"] else "2100-12-31T23:59:59"
@@ -1521,27 +1538,25 @@ class Query():
         return {
             "range": {
                 "doc_datetime": {
-                    "gte" : self.params['start_date'] if self.params["start_date"] else "1900-01-01T00:00:00",
-                    "lte" : self.params['end_date'] if self.params["end_date"] else "2100-12-31T23:59:59"
+                    "gte" : startDate if startDate else "1900-01-01T00:00:00",
+                    "lte" : endDate if endDate else "2100-12-31T23:59:59"
                 } 
             }
         }
         
-    def get_project_seq_query(self):
+    def get_project_seq_query(self, projectSeq):
         return {
             "term" : {
-                "project_seq" : self.params['project_seq'] 
+                "project_seq" : projectSeq 
             }
         }
         
-    def get_channel_query(self):
-        channel = self.params["channels"] # 1^5,6,7,8;2^11,12,13,14
-        
-        if not channel or channel == "all":
+    def get_channel_query(self, channels):
+        if not channels or channels == "all":
             return None
         else:
             query = ''
-            for c in re.sub(";$", "", channel).split(";"):
+            for c in re.sub(";$", "", channels).split(";"):
                 depth1_seq = c.split("^")[0]
                 
                 query += "("
@@ -1560,8 +1575,8 @@ class Query():
             
             
     
-    def get_dataset_query(self, dataset_seq):
-        dataset_keyword_list = mariadb.get_include_keywords(dataset_seq) # dataset 시퀀스로 dataset_keyword 조회
+    def get_dataset_query(self, datasetSeq):
+        dataset_keyword_list = mariadb.get_include_keywords(datasetSeq) # dataset 시퀀스로 dataset_keyword 조회
         
         keyword_sets_should = []
         for result in dataset_keyword_list:
@@ -1683,11 +1698,12 @@ class Query():
         
         
     
-    def get_documents_query(self):
+    def get_documents_query(self, params):
         query = {
            "query" : {
                "bool" : {
                     "filter" : None,
+                    "must_not" : self.get_project_filter_query(params['project_seq']),
                     "minimum_should_match" : 1,
                     "should" : None,
                 }
@@ -1696,32 +1712,33 @@ class Query():
         
         filter = []
         # 프로젝트 시퀀스 포함
-        filter.append(self.get_project_seq_query())
+        filter.append(self.get_project_seq_query(params['project_seq']))
     
         # 대상 채널
-        if "channels" in self.params and self.params["channels"] and self.params["channels"] != 'all':
-            filter.append(self.get_channel_query())
+        if "channels" in params and params["channels"] and params["channels"] != 'all':
+            filter.append(self.get_channel_query(params["channels"]))
     
         # 원문의 대상 기간
-        if "start_date" in self.params or "end_date" in self.params:
-            filter.append(self.get_period_query())
+        if "start_date" in params or "end_date" in params:
+            filter.append(self.get_period_query(params['start_date'], params['end_date']))
+     
              
         # 데이터셋의 포함 키워드
         should = []
-        if "datasets" in self.params and self.params["datasets"]: # 신라면,삼양라면,안성탕면
-            if len(self.params["datasets"].split("^"))>1:
-                for dataset in self.params["datasets"].split("^"):
-                    should.append(self.get_dataset_query(dataset))
+        if "datasets" in params and params["datasets"]: # 신라면,삼양라면,안성탕면
+            if len(params["datasets"].split("^"))>1:
+                for datasetSeq in params["datasets"].split("^"):
+                    should.append(self.get_dataset_query(datasetSeq))
         
         query["query"]['bool']["filter"] = filter
-        query["query"]['bool']["should"] = should if len(should)>0 else self.get_dataset_query(self.params["datasets"])
+        query["query"]['bool']["should"] = should if len(should)>0 else self.get_dataset_query(params["datasets"])
         
         return query
     
     
     
     
-    def get_emotions_query(self):
+    def get_emotions_query(self, params):
         query = {
             "query" : {
                 "bool" : {
@@ -1736,6 +1753,7 @@ class Query():
                             "parent_type" : "documents",
                                "query" : {
                                     "bool" : {
+                                        "must_not" : self.get_project_filter_query(params['project_seq']),
                                         "minimum_should_match" : 1,
                                         "should" : None,
                                         "filter" : None
@@ -1750,25 +1768,25 @@ class Query():
         
         filter = []
         # 프로젝트 시퀀스 포함
-        filter.append(self.get_project_seq_query())
+        filter.append(self.get_project_seq_query(params['project_seq']))
     
         # 대상 채널
-        if "channels" in self.params and self.params["channels"] and self.params["channels"] != 'all':
-            filter.append(self.get_channel_query())
+        if "channels" in params and params["channels"] and params["channels"] != 'all':
+            filter.append(self.get_channel_query(params['channels']))
     
         # 원문의 대상 기간
-        if "start_date" in self.params or "end_date" in self.params:
-            filter.append(self.get_period_query())
+        if "start_date" in params or "end_date" in params:
+            filter.append(self.get_period_query(params["start_date"], params["end_date"]))
              
         # 데이터셋의 포함 키워드
         should = []
-        if "datasets" in self.params and self.params["datasets"]: # 신라면,삼양라면,안성탕면
-            if len(self.params["datasets"].split("^"))>1:
-                for dataset in self.params["datasets"].split("^"):
-                    should.append(self.get_dataset_query(dataset))
+        if "datasets" in params and params["datasets"]: # 신라면,삼양라면,안성탕면
+            if len(params["datasets"].split("^"))>1:
+                for datasetSeq in params["datasets"].split("^"):
+                    should.append(self.get_dataset_query(datasetSeq))
     
         query["query"]['bool']['filter'][1]["has_parent"]["query"]["bool"]["filter"] = filter
-        query["query"]['bool']['filter'][1]["has_parent"]["query"]["bool"]["should"] = should if len(should)>0 else self.get_dataset_query(self.params["datasets"])
+        query["query"]['bool']['filter'][1]["has_parent"]["query"]["bool"]["should"] = should if len(should)>0 else self.get_dataset_query(params["datasets"])
             
             
         return query
@@ -1777,8 +1795,8 @@ class Query():
     
     
     
-    def get_project_filter_query(self, project_seq):
-        project_filter_keywords = mariadb.get_project_filter_keywords(project_seq)
+    def get_project_filter_query(self, projectSeq):
+        project_filter_keywords = mariadb.get_project_filter_keywords(projectSeq)
         
         project_title_filter = project_filter_keywords['title_filter_keywords'].strip() if project_filter_keywords and 'title_filter_keywords' in project_filter_keywords else ''
         project_content_filter = project_filter_keywords['content_filter_keywords'].strip() if project_filter_keywords and 'content_filter_keywords' in project_filter_keywords else ''
