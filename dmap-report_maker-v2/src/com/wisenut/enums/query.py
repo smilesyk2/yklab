@@ -1796,7 +1796,8 @@ class Query():
     
     
     def get_project_filter_query(self, projectSeq):
-        project_filter_keywords = mariadb.get_project_filter_keywords(projectSeq)
+        #project_filter_keywords = mariadb.get_project_filter_keywords(projectSeq)
+        project_filter_keywords = None # 테스트 이후에는 위 코드로 다시 교체
         
         project_title_filter = project_filter_keywords['title_filter_keywords'].strip() if project_filter_keywords and 'title_filter_keywords' in project_filter_keywords else ''
         project_content_filter = project_filter_keywords['content_filter_keywords'].strip() if project_filter_keywords and 'content_filter_keywords' in project_filter_keywords else ''

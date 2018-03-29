@@ -17,7 +17,7 @@ logger = myLogger.getMyLogger("esclient", False, True, logging.DEBUG)
 
 ############# Elasticsearch 정보 세팅
 #es_ip = "ec2-13-124-161-198.ap-northeast-2.compute.amazonaws.com"
-es_ip="ec2-13-125-22-244.ap-northeast-2.compute.amazonaws.com"
+es_ip="211.39.140.96"
 es_port = 9200
 es_conn = hc.HTTPConnection(es_ip, es_port, timeout=300)
 
@@ -25,7 +25,14 @@ attr_dict = {
     "brand" : "브랜드",
     "region" : "지명",
     "person" : "인명"
-}    
+}
+
+
+
+class EsRejectedExecutionException(Exception):
+    pass
+
+
 
 def clear_scroll(scroll_id):
     try:
@@ -41,6 +48,37 @@ def clear_scroll(scroll_id):
         
         
         
+def getNumberOfRejectedTasks(name):
+    numberOfRejectedTasks = -1
+          
+    if name is None or name == '':
+        print("No name entered.")
+        return numberOfRejectedTasks
+        
+    try:
+        es_conn = hc.HTTPConnection(es_ip, es_port, timeout=300)
+        es_conn.request("GET", "/_cat/thread_pool/"+name+"?v&h=id,name,queue,queue_size,active,rejected,completed,keep_alive,min,max,node_name&s=name&format=json&pretty","", { "Content-Type" : "application/json" })
+        
+        threadPoolResult = json.loads(es_conn.getresponse().read())
+        
+        for result in threadPoolResult:
+            if 'name' in result and result['name']==name:
+                numberOfRejectedTasks = int(result['rejected'])
+                break
+                
+        logger.info("[getThreadPool] numberOfRejectedTasks : %d" % numberOfRejectedTasks)
+    except OSError as oserror:
+        ex = traceback.format_exc()
+        logger.error("[getThreadPool] OS error : %s. Traceback >> %s " % (str(oserror), ex))
+    except:
+        ex = traceback.format_exc()
+        logger.error("[getThreadPool] error. Traceback >> %s " % ex)
+
+    return numberOfRejectedTasks
+
+
+
+
 
 def get_topic_attr(topic):
     request = {

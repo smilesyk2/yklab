@@ -79,7 +79,7 @@ class Report:
                 
         self.logger.info("=======================================================================================")
         for k, v in params.items():
-            self.logger.info(k + " :\t\t" + v)
+            self.logger.info(k + " :\t\t" + str(v))
         self.logger.info("=======================================================================================")    
         
     def get_file_name(self):
